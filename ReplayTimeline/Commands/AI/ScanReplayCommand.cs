@@ -69,7 +69,22 @@ namespace iRacingReplayDirector
 				if (result != MessageBoxResult.Yes)
 					return;
 
-				await ReplayDirectorVM.AIDirector.ScanReplayAsync(startFrame, endFrame);
+				var scanResult = await ReplayDirectorVM.AIDirector.ScanReplayAsync(startFrame, endFrame);
+
+				if (scanResult == null)
+				{
+					// Scan failed or was cancelled - show status message
+					string errorMsg = ReplayDirectorVM.AIDirector.StatusMessage;
+					if (!string.IsNullOrEmpty(errorMsg) && errorMsg.StartsWith("Scan error:"))
+					{
+						MessageBox.Show(
+							errorMsg,
+							"Scan Error",
+							MessageBoxButton.OK,
+							MessageBoxImage.Error);
+					}
+					return;
+				}
 
 				if (ReplayDirectorVM.AIDirector.HasScanResult)
 				{
@@ -82,7 +97,12 @@ namespace iRacingReplayDirector
 			}
 			catch (Exception ex)
 			{
-				ReplayDirectorVM.AIDirector.ClearResults();
+				try
+				{
+					ReplayDirectorVM.AIDirector?.ClearResults();
+				}
+				catch { }
+
 				MessageBox.Show(
 					$"Error scanning replay: {ex.Message}",
 					"Scan Error",

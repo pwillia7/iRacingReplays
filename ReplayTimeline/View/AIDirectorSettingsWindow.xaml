@@ -37,10 +37,10 @@
 
                         <TextBlock Text="Model:" Margin="0,10,0,2"/>
                         <ComboBox x:Name="OpenAIModelComboBox" Width="200" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="gpt-4o" IsSelected="True"/>
+                            <ComboBoxItem Content="gpt-3.5-turbo" IsSelected="True"/>
                             <ComboBoxItem Content="gpt-4o-mini"/>
+                            <ComboBoxItem Content="gpt-4o"/>
                             <ComboBoxItem Content="gpt-4-turbo"/>
-                            <ComboBoxItem Content="gpt-3.5-turbo"/>
                         </ComboBox>
                     </StackPanel>
 

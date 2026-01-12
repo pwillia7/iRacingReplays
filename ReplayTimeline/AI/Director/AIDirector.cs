@@ -32,7 +32,12 @@ namespace iRacingReplayDirector.AI.Director
 		public AIDirectorState State
 		{
 			get { return _state; }
-			private set { _state = value; OnPropertyChanged("State"); OnPropertyChanged("IsBusy"); }
+			private set
+			{
+				_state = value;
+				SafeRaisePropertyChanged("State");
+				SafeRaisePropertyChanged("IsBusy");
+			}
 		}
 
 		public bool IsBusy => State != AIDirectorState.Idle && State != AIDirectorState.Error;
@@ -41,21 +46,26 @@ namespace iRacingReplayDirector.AI.Director
 		public int ScanProgress
 		{
 			get { return _scanProgress; }
-			private set { _scanProgress = value; OnPropertyChanged("ScanProgress"); }
+			private set { _scanProgress = value; SafeRaisePropertyChanged("ScanProgress"); }
 		}
 
 		private string _statusMessage = "Ready";
 		public string StatusMessage
 		{
 			get { return _statusMessage; }
-			private set { _statusMessage = value; OnPropertyChanged("StatusMessage"); }
+			private set { _statusMessage = value; SafeRaisePropertyChanged("StatusMessage"); }
 		}
 
 		private ReplayScanResult _lastScanResult;
 		public ReplayScanResult LastScanResult
 		{
 			get { return _lastScanResult; }
-			private set { _lastScanResult = value; OnPropertyChanged("LastScanResult"); OnPropertyChanged("HasScanResult"); }
+			private set
+			{
+				_lastScanResult = value;
+				SafeRaisePropertyChanged("LastScanResult");
+				SafeRaisePropertyChanged("HasScanResult");
+			}
 		}
 
 		public bool HasScanResult => LastScanResult != null && LastScanResult.Events.Count > 0;
@@ -64,10 +74,33 @@ namespace iRacingReplayDirector.AI.Director
 		public CameraPlan GeneratedPlan
 		{
 			get { return _generatedPlan; }
-			private set { _generatedPlan = value; OnPropertyChanged("GeneratedPlan"); OnPropertyChanged("HasGeneratedPlan"); }
+			private set
+			{
+				_generatedPlan = value;
+				SafeRaisePropertyChanged("GeneratedPlan");
+				SafeRaisePropertyChanged("HasGeneratedPlan");
+			}
 		}
 
 		public bool HasGeneratedPlan => GeneratedPlan != null && GeneratedPlan.CameraActions.Count > 0;
+
+		private void SafeRaisePropertyChanged(string propertyName)
+		{
+			if (Application.Current?.Dispatcher == null)
+			{
+				OnPropertyChanged(propertyName);
+				return;
+			}
+
+			if (Application.Current.Dispatcher.CheckAccess())
+			{
+				OnPropertyChanged(propertyName);
+			}
+			else
+			{
+				Application.Current.Dispatcher.BeginInvoke(new Action(() => OnPropertyChanged(propertyName)));
+			}
+		}
 
 		public AIDirector(ReplayDirectorVM viewModel)
 		{
@@ -115,53 +148,65 @@ namespace iRacingReplayDirector.AI.Director
 			};
 
 			var snapshots = new List<TelemetrySnapshot>();
+			int originalFrame = startFrame;
 
 			try
 			{
-				// Validate we have a connection to iRacing
-				if (Sim.Instance == null || Sim.Instance.Sdk == null)
+				// Verify we can access the dispatcher first
+				if (Application.Current?.Dispatcher == null)
 				{
-					throw new InvalidOperationException("iRacing is not connected");
+					StatusMessage = "Cannot access UI dispatcher";
+					State = AIDirectorState.Error;
+					return null;
 				}
 
-				if (Sim.Instance.SessionInfo == null)
+				// Validate connection on UI thread
+				bool isConnected = false;
+				await Application.Current.Dispatcher.InvokeAsync(() =>
 				{
-					throw new InvalidOperationException("No session info available");
+					isConnected = Sim.Instance != null && Sim.Instance.Sdk != null && Sim.Instance.SessionInfo != null;
+					if (isConnected)
+					{
+						originalFrame = _viewModel.CurrentFrame;
+					}
+				});
+
+				if (!isConnected)
+				{
+					StatusMessage = "iRacing is not connected";
+					State = AIDirectorState.Error;
+					return null;
 				}
 
-				// Get track and session info
-				try
+				// Get track and session info on UI thread
+				await Application.Current.Dispatcher.InvokeAsync(() =>
 				{
-					var weekendInfo = Sim.Instance.SessionInfo["WeekendInfo"];
-					result.TrackName = weekendInfo?["TrackName"]?.GetValue("Unknown Track") ?? "Unknown Track";
+					try
+					{
+						var weekendInfo = Sim.Instance.SessionInfo["WeekendInfo"];
+						result.TrackName = weekendInfo?["TrackName"]?.GetValue("Unknown Track") ?? "Unknown Track";
 
-					var sessionNum = Sim.Instance.Telemetry?.SessionNum?.Value ?? 0;
-					var sessionInfo = Sim.Instance.SessionInfo["SessionInfo"]?["Sessions"]?["SessionNum", sessionNum];
-					result.SessionType = sessionInfo?["SessionType"]?.GetValue("Race") ?? "Race";
-				}
-				catch
-				{
-					result.TrackName = "Unknown Track";
-					result.SessionType = "Race";
-				}
+						var sessionNum = Sim.Instance.Telemetry?.SessionNum?.Value ?? 0;
+						var sessionInfo = Sim.Instance.SessionInfo["SessionInfo"]?["Sessions"]?["SessionNum", sessionNum];
+						result.SessionType = sessionInfo?["SessionType"]?.GetValue("Race") ?? "Race";
+					}
+					catch
+					{
+						result.TrackName = "Unknown Track";
+						result.SessionType = "Race";
+					}
+				});
 
 				int totalFrames = endFrame - startFrame;
 				if (totalFrames <= 0)
 				{
-					throw new InvalidOperationException("Invalid frame range");
+					StatusMessage = "Invalid frame range";
+					State = AIDirectorState.Error;
+					return null;
 				}
 
 				int frameStep = Settings.ScanIntervalFrames;
 				int framesProcessed = 0;
-
-				// Store original position
-				int originalFrame = _viewModel.CurrentFrame;
-
-				// Verify we can access the dispatcher
-				if (Application.Current?.Dispatcher == null)
-				{
-					throw new InvalidOperationException("Cannot access UI dispatcher");
-				}
 
 				// Scan through the replay
 				for (int frame = startFrame; frame <= endFrame; frame += frameStep)
@@ -273,7 +318,7 @@ namespace iRacingReplayDirector.AI.Director
 			{
 				StatusMessage = $"Scan error: {ex.Message}";
 				State = AIDirectorState.Error;
-				throw;
+				return null;
 			}
 		}
 
