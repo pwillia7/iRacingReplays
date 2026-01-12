@@ -11,7 +11,13 @@ namespace iRacingReplayDirector.AI.LLM
 {
 	public abstract class LLMProviderBase : ILLMProvider
 	{
-		protected static readonly HttpClient SharedHttpClient = new HttpClient();
+		protected static readonly HttpClient SharedHttpClient;
+
+		static LLMProviderBase()
+		{
+			SharedHttpClient = new HttpClient();
+			SharedHttpClient.Timeout = TimeSpan.FromSeconds(60);
+		}
 
 		public abstract string Name { get; }
 
@@ -85,11 +91,10 @@ namespace iRacingReplayDirector.AI.LLM
 				};
 
 				string jsonBody = JsonConvert.SerializeObject(requestBody);
-				var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
 				using (var request = new HttpRequestMessage(HttpMethod.Post, Endpoint))
 				{
-					request.Content = content;
+					request.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
 					string authHeader = GetAuthorizationHeader();
 					if (!string.IsNullOrEmpty(authHeader))
@@ -97,11 +102,15 @@ namespace iRacingReplayDirector.AI.LLM
 						request.Headers.TryAddWithoutValidation("Authorization", authHeader);
 					}
 
-					var response = await SharedHttpClient.SendAsync(request, cancellationToken);
-					return response.IsSuccessStatusCode;
+					using (var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+					{
+						cts.CancelAfter(TimeSpan.FromSeconds(30));
+						var response = await SharedHttpClient.SendAsync(request, cts.Token).ConfigureAwait(false);
+						return response.IsSuccessStatusCode;
+					}
 				}
 			}
-			catch
+			catch (Exception)
 			{
 				return false;
 			}

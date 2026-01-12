@@ -1,4 +1,5 @@
 using System;
+using System.Windows;
 using System.Windows.Input;
 
 namespace iRacingReplayDirector
@@ -20,34 +21,73 @@ namespace iRacingReplayDirector
 
 		public bool CanExecute(object parameter)
 		{
-			if (!ReplayDirectorVM.IsSessionReady())
-				return false;
+			try
+			{
+				if (!ReplayDirectorVM.IsSessionReady())
+					return false;
 
-			if (ReplayDirectorVM.AIDirector == null)
-				return false;
+				if (ReplayDirectorVM.AIDirector == null)
+					return false;
 
-			if (ReplayDirectorVM.AIDirector.IsBusy)
-				return false;
+				if (ReplayDirectorVM.AIDirector.IsBusy)
+					return false;
 
-			return true;
+				if (ReplayDirectorVM.FinalFrame <= 0)
+					return false;
+
+				return true;
+			}
+			catch
+			{
+				return false;
+			}
 		}
 
 		public async void Execute(object parameter)
 		{
 			try
 			{
-				int startFrame = 0;
+				int startFrame = ReplayDirectorVM.CurrentFrame;
 				int endFrame = ReplayDirectorVM.FinalFrame;
 
+				if (endFrame <= startFrame)
+				{
+					MessageBox.Show(
+						"Cannot scan: Invalid frame range. Make sure a replay is loaded.",
+						"Scan Error",
+						MessageBoxButton.OK,
+						MessageBoxImage.Warning);
+					return;
+				}
+
+				var result = MessageBox.Show(
+					$"Scan replay from frame {startFrame} to {endFrame}?\n\nThis will take some time and move through the replay.",
+					"Confirm Scan",
+					MessageBoxButton.YesNo,
+					MessageBoxImage.Question);
+
+				if (result != MessageBoxResult.Yes)
+					return;
+
 				await ReplayDirectorVM.AIDirector.ScanReplayAsync(startFrame, endFrame);
+
+				if (ReplayDirectorVM.AIDirector.HasScanResult)
+				{
+					MessageBox.Show(
+						$"Scan complete!\n\nDetected {ReplayDirectorVM.AIDirector.LastScanResult.Events.Count} events.\n\nYou can now generate a camera plan.",
+						"Scan Complete",
+						MessageBoxButton.OK,
+						MessageBoxImage.Information);
+				}
 			}
 			catch (Exception ex)
 			{
-				System.Windows.MessageBox.Show(
+				ReplayDirectorVM.AIDirector.ClearResults();
+				MessageBox.Show(
 					$"Error scanning replay: {ex.Message}",
 					"Scan Error",
-					System.Windows.MessageBoxButton.OK,
-					System.Windows.MessageBoxImage.Error);
+					MessageBoxButton.OK,
+					MessageBoxImage.Error);
 			}
 		}
 	}

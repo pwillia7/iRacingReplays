@@ -108,6 +108,18 @@ namespace iRacingReplayDirector
 			try
 			{
 				var provider = _aiDirector.GetCurrentProvider();
+
+				if (!provider.IsConfigured)
+				{
+					ConnectionStatusText.Text = provider.RequiresApiKey
+						? "Please enter an API key first."
+						: "Please configure the endpoint.";
+					ConnectionStatusText.Foreground = System.Windows.Media.Brushes.Orange;
+					return;
+				}
+
+				ConnectionStatusText.Text = $"Testing {provider.Name} ({provider.ModelName})...";
+
 				bool success = await provider.TestConnectionAsync();
 
 				if (success)
@@ -117,9 +129,19 @@ namespace iRacingReplayDirector
 				}
 				else
 				{
-					ConnectionStatusText.Text = "Connection failed. Check your settings.";
+					ConnectionStatusText.Text = "Connection failed. Check API key and model name.";
 					ConnectionStatusText.Foreground = System.Windows.Media.Brushes.Red;
 				}
+			}
+			catch (System.Net.Http.HttpRequestException httpEx)
+			{
+				ConnectionStatusText.Text = $"Network error: {httpEx.Message}";
+				ConnectionStatusText.Foreground = System.Windows.Media.Brushes.Red;
+			}
+			catch (System.Threading.Tasks.TaskCanceledException)
+			{
+				ConnectionStatusText.Text = "Connection timed out. Check your network.";
+				ConnectionStatusText.Foreground = System.Windows.Media.Brushes.Red;
 			}
 			catch (System.Exception ex)
 			{

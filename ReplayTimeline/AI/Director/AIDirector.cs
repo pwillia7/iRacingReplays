@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace iRacingReplayDirector.AI.Director
 {
@@ -117,14 +118,39 @@ namespace iRacingReplayDirector.AI.Director
 
 			try
 			{
-				// Get track and session info
-				var weekendInfo = Sim.Instance.SessionInfo["WeekendInfo"];
-				result.TrackName = weekendInfo["TrackName"].GetValue("Unknown Track");
+				// Validate we have a connection to iRacing
+				if (Sim.Instance == null || Sim.Instance.Sdk == null)
+				{
+					throw new InvalidOperationException("iRacing is not connected");
+				}
 
-				var sessionInfo = Sim.Instance.SessionInfo["SessionInfo"]["Sessions"]["SessionNum", Sim.Instance.Telemetry.SessionNum.Value];
-				result.SessionType = sessionInfo["SessionType"].GetValue("Race");
+				if (Sim.Instance.SessionInfo == null)
+				{
+					throw new InvalidOperationException("No session info available");
+				}
+
+				// Get track and session info
+				try
+				{
+					var weekendInfo = Sim.Instance.SessionInfo["WeekendInfo"];
+					result.TrackName = weekendInfo?["TrackName"]?.GetValue("Unknown Track") ?? "Unknown Track";
+
+					var sessionNum = Sim.Instance.Telemetry?.SessionNum?.Value ?? 0;
+					var sessionInfo = Sim.Instance.SessionInfo["SessionInfo"]?["Sessions"]?["SessionNum", sessionNum];
+					result.SessionType = sessionInfo?["SessionType"]?.GetValue("Race") ?? "Race";
+				}
+				catch
+				{
+					result.TrackName = "Unknown Track";
+					result.SessionType = "Race";
+				}
 
 				int totalFrames = endFrame - startFrame;
+				if (totalFrames <= 0)
+				{
+					throw new InvalidOperationException("Invalid frame range");
+				}
+
 				int frameStep = Settings.ScanIntervalFrames;
 				int framesProcessed = 0;
 
@@ -141,14 +167,26 @@ namespace iRacingReplayDirector.AI.Director
 						return null;
 					}
 
-					// Jump to frame
-					Sim.Instance.Sdk.Replay.SetPosition(frame);
+					// Jump to frame on UI thread
+					await Application.Current.Dispatcher.InvokeAsync(() =>
+					{
+						try
+						{
+							Sim.Instance.Sdk.Replay.SetPosition(frame);
+						}
+						catch { }
+					});
 
 					// Wait for telemetry to update
-					await Task.Delay(50, cancellationToken);
+					await Task.Delay(100, cancellationToken).ConfigureAwait(false);
 
-					// Capture snapshot
-					var snapshot = CaptureSnapshot(frame);
+					// Capture snapshot on UI thread
+					TelemetrySnapshot snapshot = null;
+					await Application.Current.Dispatcher.InvokeAsync(() =>
+					{
+						snapshot = CaptureSnapshot(frame);
+					});
+
 					if (snapshot != null)
 					{
 						snapshots.Add(snapshot);
@@ -174,14 +212,24 @@ namespace iRacingReplayDirector.AI.Director
 						continue;
 
 					var events = detector.DetectEvents(snapshots);
-					result.Events.AddRange(events);
+					if (events != null)
+					{
+						result.Events.AddRange(events);
+					}
 				}
 
 				// Sort events by frame
 				result.Events = result.Events.OrderBy(e => e.Frame).ToList();
 
-				// Return to original position
-				Sim.Instance.Sdk.Replay.SetPosition(originalFrame);
+				// Return to original position on UI thread
+				await Application.Current.Dispatcher.InvokeAsync(() =>
+				{
+					try
+					{
+						Sim.Instance.Sdk.Replay.SetPosition(originalFrame);
+					}
+					catch { }
+				});
 
 				LastScanResult = result;
 				StatusMessage = $"Scan complete: {result.Events.Count} events detected";

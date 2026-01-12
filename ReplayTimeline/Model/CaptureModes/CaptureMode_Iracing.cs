@@ -26,12 +26,14 @@ namespace iRacingReplayDirector
 
 		public override void StartRecording()
 		{
-			Sim.Instance.Sdk.Sdk.BroadcastMessage(iRSDKSharp.BroadcastMessageTypes.VideoCapture, 1, 0);
+			// VideoCapture = 14 in iRacing SDK
+			Sim.Instance.Sdk.Sdk.BroadcastMessage((iRSDKSharp.BroadcastMessageTypes)14, 1, 0);
 		}
 
 		public override void StopRecording()
 		{
-			Sim.Instance.Sdk.Sdk.BroadcastMessage(iRSDKSharp.BroadcastMessageTypes.VideoCapture, 2, 0);
+			// VideoCapture = 14 in iRacing SDK
+			Sim.Instance.Sdk.Sdk.BroadcastMessage((iRSDKSharp.BroadcastMessageTypes)14, 2, 0);
 		}
 	}
 }
