@@ -1,4 +1,5 @@
 using iRacingReplayDirector.AI.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -16,65 +17,78 @@ namespace iRacingReplayDirector.AI.EventDetection
 		{
 			var events = new List<RaceEvent>();
 
-			if (snapshots == null || snapshots.Count < 2)
-				return events;
-
-			var lastOvertakeFrameByDriver = new Dictionary<int, int>();
-
-			for (int i = 1; i < snapshots.Count; i++)
+			try
 			{
-				var previousSnapshot = snapshots[i - 1];
-				var currentSnapshot = snapshots[i];
+				if (snapshots == null || snapshots.Count < 2)
+					return events;
 
-				foreach (var currentDriver in currentSnapshot.DriverStates)
+				var lastOvertakeFrameByDriver = new Dictionary<int, int>();
+
+				for (int i = 1; i < snapshots.Count; i++)
 				{
-					var previousDriver = previousSnapshot.DriverStates
-						.FirstOrDefault(d => d.NumberRaw == currentDriver.NumberRaw);
+					var previousSnapshot = snapshots[i - 1];
+					var currentSnapshot = snapshots[i];
 
-					if (previousDriver == null)
+					if (previousSnapshot?.DriverStates == null || currentSnapshot?.DriverStates == null)
 						continue;
 
-					// Skip drivers not on track
-					if (currentDriver.TrackSurface != TrackSurfaces.OnTrack)
-						continue;
-
-					// Detect position gain (lower position number = better)
-					if (currentDriver.Position < previousDriver.Position && previousDriver.Position > 0)
+					foreach (var currentDriver in currentSnapshot.DriverStates)
 					{
-						// Check if enough time has passed since last overtake for this driver
-						if (lastOvertakeFrameByDriver.TryGetValue(currentDriver.NumberRaw, out int lastFrame) &&
-							(currentSnapshot.Frame - lastFrame) < MinFramesBetweenOvertakes)
-						{
+						if (currentDriver == null)
 							continue;
-						}
 
-						lastOvertakeFrameByDriver[currentDriver.NumberRaw] = currentSnapshot.Frame;
+						var previousDriver = previousSnapshot.DriverStates
+							.FirstOrDefault(d => d != null && d.NumberRaw == currentDriver.NumberRaw);
 
-						// Find who was passed
-						var passedDriver = currentSnapshot.DriverStates
-							.FirstOrDefault(d => d.Position == previousDriver.Position && d.NumberRaw != currentDriver.NumberRaw);
+						if (previousDriver == null)
+							continue;
 
-						var raceEvent = new RaceEvent
+						// Skip drivers not on track
+						if (currentDriver.TrackSurface != iRacingReplayDirector.TrackSurfaces.OnTrack)
+							continue;
+
+						// Detect position gain (lower position number = better)
+						if (currentDriver.Position < previousDriver.Position && previousDriver.Position > 0)
 						{
-							Frame = currentSnapshot.Frame,
-							SessionTime = currentSnapshot.SessionTime,
-							EventType = RaceEventType.Overtake,
-							PrimaryDriverNumber = currentDriver.NumberRaw,
-							PrimaryDriverName = currentDriver.TeamName,
-							SecondaryDriverNumber = passedDriver?.NumberRaw,
-							SecondaryDriverName = passedDriver?.TeamName,
-							Position = currentDriver.Position,
-							LapDistancePct = currentDriver.LapDistance,
-							Description = passedDriver != null
-								? $"#{currentDriver.NumberRaw} {currentDriver.TeamName} passes #{passedDriver.NumberRaw} for P{currentDriver.Position}"
-								: $"#{currentDriver.NumberRaw} {currentDriver.TeamName} moves to P{currentDriver.Position}",
-							ImportanceScore = CalculateImportance(currentDriver.Position, previousDriver.Position - currentDriver.Position),
-							DurationFrames = 300 // ~5 seconds
-						};
+							// Check if enough time has passed since last overtake for this driver
+							if (lastOvertakeFrameByDriver.TryGetValue(currentDriver.NumberRaw, out int lastFrame) &&
+								(currentSnapshot.Frame - lastFrame) < MinFramesBetweenOvertakes)
+							{
+								continue;
+							}
 
-						events.Add(raceEvent);
+							lastOvertakeFrameByDriver[currentDriver.NumberRaw] = currentSnapshot.Frame;
+
+							// Find who was passed
+							var passedDriver = currentSnapshot.DriverStates
+								.FirstOrDefault(d => d != null && d.Position == previousDriver.Position && d.NumberRaw != currentDriver.NumberRaw);
+
+							var raceEvent = new RaceEvent
+							{
+								Frame = currentSnapshot.Frame,
+								SessionTime = currentSnapshot.SessionTime,
+								EventType = RaceEventType.Overtake,
+								PrimaryDriverNumber = currentDriver.NumberRaw,
+								PrimaryDriverName = currentDriver.TeamName ?? "Unknown",
+								SecondaryDriverNumber = passedDriver?.NumberRaw,
+								SecondaryDriverName = passedDriver?.TeamName,
+								Position = currentDriver.Position,
+								LapDistancePct = currentDriver.LapDistance,
+								Description = passedDriver != null
+									? $"#{currentDriver.NumberRaw} {currentDriver.TeamName ?? "Unknown"} passes #{passedDriver.NumberRaw} for P{currentDriver.Position}"
+									: $"#{currentDriver.NumberRaw} {currentDriver.TeamName ?? "Unknown"} moves to P{currentDriver.Position}",
+								ImportanceScore = CalculateImportance(currentDriver.Position, previousDriver.Position - currentDriver.Position),
+								DurationFrames = 300 // ~5 seconds
+							};
+
+							events.Add(raceEvent);
+						}
 					}
 				}
+			}
+			catch (Exception)
+			{
+				// Swallow exceptions in detector to avoid crashing the whole scan
 			}
 
 			return events;

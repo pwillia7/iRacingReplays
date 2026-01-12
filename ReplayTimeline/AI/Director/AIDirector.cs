@@ -157,6 +157,12 @@ namespace iRacingReplayDirector.AI.Director
 				// Store original position
 				int originalFrame = _viewModel.CurrentFrame;
 
+				// Verify we can access the dispatcher
+				if (Application.Current?.Dispatcher == null)
+				{
+					throw new InvalidOperationException("Cannot access UI dispatcher");
+				}
+
 				// Scan through the replay
 				for (int frame = startFrame; frame <= endFrame; frame += frameStep)
 				{
@@ -168,24 +174,50 @@ namespace iRacingReplayDirector.AI.Director
 					}
 
 					// Jump to frame on UI thread
-					await Application.Current.Dispatcher.InvokeAsync(() =>
+					try
 					{
-						try
+						await Application.Current.Dispatcher.InvokeAsync(() =>
 						{
-							Sim.Instance.Sdk.Replay.SetPosition(frame);
-						}
-						catch { }
-					});
+							try
+							{
+								if (Sim.Instance?.Sdk?.Replay != null)
+								{
+									Sim.Instance.Sdk.Replay.SetPosition(frame);
+								}
+							}
+							catch { }
+						});
+					}
+					catch (Exception)
+					{
+						// Dispatcher might be unavailable
+						continue;
+					}
 
 					// Wait for telemetry to update
-					await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+					try
+					{
+						await Task.Delay(100).ConfigureAwait(false);
+					}
+					catch (TaskCanceledException)
+					{
+						break;
+					}
 
 					// Capture snapshot on UI thread
 					TelemetrySnapshot snapshot = null;
-					await Application.Current.Dispatcher.InvokeAsync(() =>
+					try
 					{
-						snapshot = CaptureSnapshot(frame);
-					});
+						await Application.Current.Dispatcher.InvokeAsync(() =>
+						{
+							snapshot = CaptureSnapshot(frame);
+						});
+					}
+					catch (Exception)
+					{
+						// Skip this frame if dispatcher fails
+						continue;
+					}
 
 					if (snapshot != null)
 					{
@@ -262,31 +294,41 @@ namespace iRacingReplayDirector.AI.Director
 
 		private TelemetrySnapshot CaptureSnapshot(int frame)
 		{
-			if (_viewModel.Drivers == null || _viewModel.Drivers.Count == 0)
-				return null;
-
-			var snapshot = new TelemetrySnapshot
+			try
 			{
-				Frame = frame,
-				SessionTime = _viewModel.SessionTime,
-				DriverStates = new List<DriverSnapshot>()
-			};
+				if (_viewModel?.Drivers == null || _viewModel.Drivers.Count == 0)
+					return null;
 
-			foreach (var driver in _viewModel.Drivers)
-			{
-				snapshot.DriverStates.Add(new DriverSnapshot
+				var snapshot = new TelemetrySnapshot
 				{
-					Id = driver.Id,
-					NumberRaw = driver.NumberRaw,
-					TeamName = driver.TeamName,
-					Position = driver.Position,
-					Lap = driver.Lap,
-					LapDistance = driver.LapDistance,
-					TrackSurface = driver.TrackSurface
-				});
-			}
+					Frame = frame,
+					SessionTime = _viewModel.SessionTime,
+					DriverStates = new List<DriverSnapshot>()
+				};
 
-			return snapshot;
+				foreach (var driver in _viewModel.Drivers)
+				{
+					if (driver == null)
+						continue;
+
+					snapshot.DriverStates.Add(new DriverSnapshot
+					{
+						Id = driver.Id,
+						NumberRaw = driver.NumberRaw,
+						TeamName = driver.TeamName ?? string.Empty,
+						Position = driver.Position,
+						Lap = driver.Lap,
+						LapDistance = driver.LapDistance,
+						TrackSurface = driver.TrackSurface
+					});
+				}
+
+				return snapshot;
+			}
+			catch (Exception)
+			{
+				return null;
+			}
 		}
 
 		public RaceEventSummary BuildEventSummary()

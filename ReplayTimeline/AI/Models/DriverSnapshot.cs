@@ -6,7 +6,7 @@ namespace iRacingReplayDirector.AI.Models
 
 		public int NumberRaw { get; set; }
 
-		public string TeamName { get; set; }
+		public string TeamName { get; set; } = string.Empty;
 
 		public int Position { get; set; }
 
@@ -14,6 +14,6 @@ namespace iRacingReplayDirector.AI.Models
 
 		public float LapDistance { get; set; }
 
-		public TrackSurfaces TrackSurface { get; set; }
+		public iRacingReplayDirector.TrackSurfaces TrackSurface { get; set; }
 	}
 }

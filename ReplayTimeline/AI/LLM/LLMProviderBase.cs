@@ -72,10 +72,17 @@ namespace iRacingReplayDirector.AI.LLM
 			}
 		}
 
+		public string LastError { get; protected set; }
+
 		public async Task<bool> TestConnectionAsync(CancellationToken cancellationToken = default)
 		{
+			LastError = null;
+
 			if (!IsConfigured)
+			{
+				LastError = "Provider is not configured";
 				return false;
+			}
 
 			try
 			{
@@ -106,12 +113,42 @@ namespace iRacingReplayDirector.AI.LLM
 					{
 						cts.CancelAfter(TimeSpan.FromSeconds(30));
 						var response = await SharedHttpClient.SendAsync(request, cts.Token).ConfigureAwait(false);
-						return response.IsSuccessStatusCode;
+
+						if (response.IsSuccessStatusCode)
+						{
+							return true;
+						}
+
+						// Read error response to provide better feedback
+						try
+						{
+							string errorBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+							var errorObj = JObject.Parse(errorBody);
+							LastError = errorObj["error"]?["message"]?.ToString()
+								?? $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}";
+						}
+						catch
+						{
+							LastError = $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}";
+						}
+
+						return false;
 					}
 				}
 			}
-			catch (Exception)
+			catch (TaskCanceledException)
 			{
+				LastError = "Connection timed out";
+				return false;
+			}
+			catch (HttpRequestException httpEx)
+			{
+				LastError = $"Network error: {httpEx.Message}";
+				return false;
+			}
+			catch (Exception ex)
+			{
+				LastError = ex.Message;
 				return false;
 			}
 		}

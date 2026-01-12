@@ -21,19 +21,24 @@ namespace iRacingReplayDirector.AI.EventDetection
 		{
 			var events = new List<RaceEvent>();
 
-			if (snapshots == null || snapshots.Count < 2)
-				return events;
-
-			// Track ongoing battles: key = sorted pair of driver numbers
-			var ongoingBattles = new Dictionary<string, BattleTracker>();
-			var lastBattleEventFrame = new Dictionary<string, int>();
-
-			foreach (var snapshot in snapshots)
+			try
 			{
-				var onTrackDrivers = snapshot.DriverStates
-					.Where(d => d.TrackSurface == TrackSurfaces.OnTrack && d.Position > 0)
-					.OrderBy(d => d.Position)
-					.ToList();
+				if (snapshots == null || snapshots.Count < 2)
+					return events;
+
+				// Track ongoing battles: key = sorted pair of driver numbers
+				var ongoingBattles = new Dictionary<string, BattleTracker>();
+				var lastBattleEventFrame = new Dictionary<string, int>();
+
+				foreach (var snapshot in snapshots)
+				{
+					if (snapshot?.DriverStates == null)
+						continue;
+
+					var onTrackDrivers = snapshot.DriverStates
+						.Where(d => d != null && d.TrackSurface == iRacingReplayDirector.TrackSurfaces.OnTrack && d.Position > 0)
+						.OrderBy(d => d.Position)
+						.ToList();
 
 				// Check pairs of consecutive positions
 				for (int i = 0; i < onTrackDrivers.Count - 1; i++)
@@ -54,9 +59,9 @@ namespace iRacingReplayDirector.AI.EventDetection
 							{
 								StartFrame = snapshot.Frame,
 								Driver1Number = driver1.NumberRaw,
-								Driver1Name = driver1.TeamName,
+								Driver1Name = driver1.TeamName ?? "Unknown",
 								Driver2Number = driver2.NumberRaw,
-								Driver2Name = driver2.TeamName,
+								Driver2Name = driver2.TeamName ?? "Unknown",
 								Position = driver1.Position
 							};
 						}
@@ -133,6 +138,10 @@ namespace iRacingReplayDirector.AI.EventDetection
 						events.Add(raceEvent);
 					}
 				}
+			}
+			catch (Exception)
+			{
+				// Swallow exceptions in detector to avoid crashing the whole scan
 			}
 
 			return events;

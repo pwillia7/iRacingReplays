@@ -14,6 +14,8 @@ namespace iRacingReplayDirector.AI.LLM
 
 		bool RequiresApiKey { get; }
 
+		string LastError { get; }
+
 		Task<CameraPlan> GenerateCameraPlanAsync(RaceEventSummary summary, CancellationToken cancellationToken = default);
 
 		Task<bool> TestConnectionAsync(CancellationToken cancellationToken = default);

@@ -129,7 +129,8 @@ namespace iRacingReplayDirector
 				}
 				else
 				{
-					ConnectionStatusText.Text = "Connection failed. Check API key and model name.";
+					string errorMessage = provider.LastError ?? "Connection failed. Check API key and model name.";
+					ConnectionStatusText.Text = errorMessage;
 					ConnectionStatusText.Foreground = System.Windows.Media.Brushes.Red;
 				}
 			}
