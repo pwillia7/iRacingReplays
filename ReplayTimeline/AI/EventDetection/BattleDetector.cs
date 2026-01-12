@@ -40,102 +40,103 @@ namespace iRacingReplayDirector.AI.EventDetection
 						.OrderBy(d => d.Position)
 						.ToList();
 
-				// Check pairs of consecutive positions
-				for (int i = 0; i < onTrackDrivers.Count - 1; i++)
-				{
-					var driver1 = onTrackDrivers[i];
-					var driver2 = onTrackDrivers[i + 1];
-
-					// Calculate gap based on lap distance
-					float gap = CalculateGap(driver1, driver2);
-					string battleKey = GetBattleKey(driver1.NumberRaw, driver2.NumberRaw);
-
-					if (gap <= GapThresholdPct)
+					// Check pairs of consecutive positions
+					for (int i = 0; i < onTrackDrivers.Count - 1; i++)
 					{
-						// Cars are close - track or continue battle
-						if (!ongoingBattles.ContainsKey(battleKey))
-						{
-							ongoingBattles[battleKey] = new BattleTracker
-							{
-								StartFrame = snapshot.Frame,
-								Driver1Number = driver1.NumberRaw,
-								Driver1Name = driver1.TeamName ?? "Unknown",
-								Driver2Number = driver2.NumberRaw,
-								Driver2Name = driver2.TeamName ?? "Unknown",
-								Position = driver1.Position
-							};
-						}
+						var driver1 = onTrackDrivers[i];
+						var driver2 = onTrackDrivers[i + 1];
 
-						ongoingBattles[battleKey].LastFrame = snapshot.Frame;
-						ongoingBattles[battleKey].ClosestGap = Math.Min(ongoingBattles[battleKey].ClosestGap, gap);
-					}
-					else
-					{
-						// Gap increased - check if battle ended
-						if (ongoingBattles.TryGetValue(battleKey, out var battle))
-						{
-							int battleDuration = battle.LastFrame - battle.StartFrame;
+						// Calculate gap based on lap distance
+						float gap = CalculateGap(driver1, driver2);
+						string battleKey = GetBattleKey(driver1.NumberRaw, driver2.NumberRaw);
 
-							if (battleDuration >= MinBattleDurationFrames)
+						if (gap <= GapThresholdPct)
+						{
+							// Cars are close - track or continue battle
+							if (!ongoingBattles.ContainsKey(battleKey))
 							{
-								// Check if enough time since last battle event for this pair
-								if (!lastBattleEventFrame.TryGetValue(battleKey, out int lastFrame) ||
-									(snapshot.Frame - lastFrame) >= MinFramesBetweenBattleEvents)
+								ongoingBattles[battleKey] = new BattleTracker
 								{
-									lastBattleEventFrame[battleKey] = battle.StartFrame;
-
-									var raceEvent = new RaceEvent
-									{
-										Frame = battle.StartFrame,
-										SessionTime = 0, // Will be filled in by caller if needed
-										EventType = RaceEventType.Battle,
-										PrimaryDriverNumber = battle.Driver1Number,
-										PrimaryDriverName = battle.Driver1Name,
-										SecondaryDriverNumber = battle.Driver2Number,
-										SecondaryDriverName = battle.Driver2Name,
-										Position = battle.Position,
-										Description = $"Battle for P{battle.Position}: #{battle.Driver1Number} vs #{battle.Driver2Number}",
-										ImportanceScore = CalculateImportance(battle.Position, battleDuration),
-										DurationFrames = battleDuration
-									};
-
-									events.Add(raceEvent);
-								}
+									StartFrame = snapshot.Frame,
+									Driver1Number = driver1.NumberRaw,
+									Driver1Name = driver1.TeamName ?? "Unknown",
+									Driver2Number = driver2.NumberRaw,
+									Driver2Name = driver2.TeamName ?? "Unknown",
+									Position = driver1.Position
+								};
 							}
 
-							ongoingBattles.Remove(battleKey);
+							ongoingBattles[battleKey].LastFrame = snapshot.Frame;
+							ongoingBattles[battleKey].ClosestGap = Math.Min(ongoingBattles[battleKey].ClosestGap, gap);
+						}
+						else
+						{
+							// Gap increased - check if battle ended
+							if (ongoingBattles.TryGetValue(battleKey, out var battle))
+							{
+								int battleDuration = battle.LastFrame - battle.StartFrame;
+
+								if (battleDuration >= MinBattleDurationFrames)
+								{
+									// Check if enough time since last battle event for this pair
+									if (!lastBattleEventFrame.TryGetValue(battleKey, out int lastFrame) ||
+										(snapshot.Frame - lastFrame) >= MinFramesBetweenBattleEvents)
+									{
+										lastBattleEventFrame[battleKey] = battle.StartFrame;
+
+										var raceEvent = new RaceEvent
+										{
+											Frame = battle.StartFrame,
+											SessionTime = 0,
+											EventType = RaceEventType.Battle,
+											PrimaryDriverNumber = battle.Driver1Number,
+											PrimaryDriverName = battle.Driver1Name,
+											SecondaryDriverNumber = battle.Driver2Number,
+											SecondaryDriverName = battle.Driver2Name,
+											Position = battle.Position,
+											Description = $"Battle for P{battle.Position}: #{battle.Driver1Number} vs #{battle.Driver2Number}",
+											ImportanceScore = CalculateImportance(battle.Position, battleDuration),
+											DurationFrames = battleDuration
+										};
+
+										events.Add(raceEvent);
+									}
+								}
+
+								ongoingBattles.Remove(battleKey);
+							}
 						}
 					}
 				}
-			}
 
-			// Process any remaining ongoing battles at the end
-			foreach (var kvp in ongoingBattles)
-			{
-				var battle = kvp.Value;
-				int battleDuration = battle.LastFrame - battle.StartFrame;
-
-				if (battleDuration >= MinBattleDurationFrames)
+				// Process any remaining ongoing battles at the end
+				foreach (var kvp in ongoingBattles)
 				{
-					if (!lastBattleEventFrame.TryGetValue(kvp.Key, out int lastFrame) ||
-						(battle.StartFrame - lastFrame) >= MinFramesBetweenBattleEvents)
-					{
-						var raceEvent = new RaceEvent
-						{
-							Frame = battle.StartFrame,
-							SessionTime = 0,
-							EventType = RaceEventType.Battle,
-							PrimaryDriverNumber = battle.Driver1Number,
-							PrimaryDriverName = battle.Driver1Name,
-							SecondaryDriverNumber = battle.Driver2Number,
-							SecondaryDriverName = battle.Driver2Name,
-							Position = battle.Position,
-							Description = $"Battle for P{battle.Position}: #{battle.Driver1Number} vs #{battle.Driver2Number}",
-							ImportanceScore = CalculateImportance(battle.Position, battleDuration),
-							DurationFrames = battleDuration
-						};
+					var battle = kvp.Value;
+					int battleDuration = battle.LastFrame - battle.StartFrame;
 
-						events.Add(raceEvent);
+					if (battleDuration >= MinBattleDurationFrames)
+					{
+						if (!lastBattleEventFrame.TryGetValue(kvp.Key, out int lastFrame) ||
+							(battle.StartFrame - lastFrame) >= MinFramesBetweenBattleEvents)
+						{
+							var raceEvent = new RaceEvent
+							{
+								Frame = battle.StartFrame,
+								SessionTime = 0,
+								EventType = RaceEventType.Battle,
+								PrimaryDriverNumber = battle.Driver1Number,
+								PrimaryDriverName = battle.Driver1Name,
+								SecondaryDriverNumber = battle.Driver2Number,
+								SecondaryDriverName = battle.Driver2Name,
+								Position = battle.Position,
+								Description = $"Battle for P{battle.Position}: #{battle.Driver1Number} vs #{battle.Driver2Number}",
+								ImportanceScore = CalculateImportance(battle.Position, battleDuration),
+								DurationFrames = battleDuration
+							};
+
+							events.Add(raceEvent);
+						}
 					}
 				}
 			}
