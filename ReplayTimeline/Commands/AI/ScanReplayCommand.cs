@@ -1,4 +1,6 @@
+using iRacingReplayDirector.AI.Models;
 using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -43,7 +45,7 @@ namespace iRacingReplayDirector
 			}
 		}
 
-		public async void Execute(object parameter)
+		public void Execute(object parameter)
 		{
 			try
 			{
@@ -69,31 +71,66 @@ namespace iRacingReplayDirector
 				if (result != MessageBoxResult.Yes)
 					return;
 
-				var scanResult = await ReplayDirectorVM.AIDirector.ScanReplayAsync(startFrame, endFrame);
-
-				if (scanResult == null)
+				// Run the scan on a background thread to avoid blocking UI
+				Task.Run(async () =>
 				{
-					// Scan failed or was cancelled - show status message
-					string errorMsg = ReplayDirectorVM.AIDirector.StatusMessage;
-					if (!string.IsNullOrEmpty(errorMsg) && errorMsg.StartsWith("Scan error:"))
+					try
 					{
-						MessageBox.Show(
-							errorMsg,
-							"Scan Error",
-							MessageBoxButton.OK,
-							MessageBoxImage.Error);
-					}
-					return;
-				}
+						ReplayScanResult scanResult = await ReplayDirectorVM.AIDirector.ScanReplayAsync(startFrame, endFrame);
 
-				if (ReplayDirectorVM.AIDirector.HasScanResult)
-				{
-					MessageBox.Show(
-						$"Scan complete!\n\nDetected {ReplayDirectorVM.AIDirector.LastScanResult.Events.Count} events.\n\nYou can now generate a camera plan.",
-						"Scan Complete",
-						MessageBoxButton.OK,
-						MessageBoxImage.Information);
-				}
+						// Show result on UI thread
+						await Application.Current.Dispatcher.InvokeAsync(() =>
+						{
+							try
+							{
+								if (scanResult == null)
+								{
+									string errorMsg = ReplayDirectorVM.AIDirector.StatusMessage;
+									if (!string.IsNullOrEmpty(errorMsg) && errorMsg.Contains("error"))
+									{
+										MessageBox.Show(
+											errorMsg,
+											"Scan Error",
+											MessageBoxButton.OK,
+											MessageBoxImage.Error);
+									}
+									return;
+								}
+
+								if (ReplayDirectorVM.AIDirector.HasScanResult)
+								{
+									MessageBox.Show(
+										$"Scan complete!\n\nDetected {ReplayDirectorVM.AIDirector.LastScanResult.Events.Count} events.\n\nYou can now generate a camera plan.",
+										"Scan Complete",
+										MessageBoxButton.OK,
+										MessageBoxImage.Information);
+								}
+							}
+							catch { }
+						});
+					}
+					catch (Exception ex)
+					{
+						await Application.Current.Dispatcher.InvokeAsync(() =>
+						{
+							try
+							{
+								ReplayDirectorVM.AIDirector?.ClearResults();
+							}
+							catch { }
+
+							try
+							{
+								MessageBox.Show(
+									$"Error scanning replay: {ex.Message}",
+									"Scan Error",
+									MessageBoxButton.OK,
+									MessageBoxImage.Error);
+							}
+							catch { }
+						});
+					}
+				});
 			}
 			catch (Exception ex)
 			{
@@ -103,11 +140,15 @@ namespace iRacingReplayDirector
 				}
 				catch { }
 
-				MessageBox.Show(
-					$"Error scanning replay: {ex.Message}",
-					"Scan Error",
-					MessageBoxButton.OK,
-					MessageBoxImage.Error);
+				try
+				{
+					MessageBox.Show(
+						$"Error starting scan: {ex.Message}",
+						"Scan Error",
+						MessageBoxButton.OK,
+						MessageBoxImage.Error);
+				}
+				catch { }
 			}
 		}
 	}

@@ -285,28 +285,53 @@ namespace iRacingReplayDirector.AI.Director
 
 				foreach (var detector in _eventDetectors)
 				{
-					if (!ShouldRunDetector(detector))
-						continue;
-
-					var events = detector.DetectEvents(snapshots);
-					if (events != null)
+					try
 					{
-						result.Events.AddRange(events);
+						if (!ShouldRunDetector(detector))
+							continue;
+
+						var events = detector.DetectEvents(snapshots);
+						if (events != null)
+						{
+							result.Events.AddRange(events);
+						}
+					}
+					catch
+					{
+						// Skip detector if it fails
+						continue;
 					}
 				}
 
 				// Sort events by frame
-				result.Events = result.Events.OrderBy(e => e.Frame).ToList();
+				try
+				{
+					result.Events = result.Events.OrderBy(e => e.Frame).ToList();
+				}
+				catch
+				{
+					// Keep unsorted if sorting fails
+				}
 
 				// Return to original position on UI thread
-				await Application.Current.Dispatcher.InvokeAsync(() =>
+				try
 				{
-					try
+					if (Application.Current?.Dispatcher != null)
 					{
-						Sim.Instance.Sdk.Replay.SetPosition(originalFrame);
+						await Application.Current.Dispatcher.InvokeAsync(() =>
+						{
+							try
+							{
+								if (Sim.Instance?.Sdk?.Replay != null)
+								{
+									Sim.Instance.Sdk.Replay.SetPosition(originalFrame);
+								}
+							}
+							catch { }
+						});
 					}
-					catch { }
-				});
+				}
+				catch { }
 
 				LastScanResult = result;
 				StatusMessage = $"Scan complete: {result.Events.Count} events detected";
@@ -344,6 +369,9 @@ namespace iRacingReplayDirector.AI.Director
 				if (_viewModel?.Drivers == null || _viewModel.Drivers.Count == 0)
 					return null;
 
+				// Create a safe copy of the drivers list to avoid collection modified exceptions
+				var driversCopy = _viewModel.Drivers.ToList();
+
 				var snapshot = new TelemetrySnapshot
 				{
 					Frame = frame,
@@ -351,21 +379,29 @@ namespace iRacingReplayDirector.AI.Director
 					DriverStates = new List<DriverSnapshot>()
 				};
 
-				foreach (var driver in _viewModel.Drivers)
+				foreach (var driver in driversCopy)
 				{
 					if (driver == null)
 						continue;
 
-					snapshot.DriverStates.Add(new DriverSnapshot
+					try
 					{
-						Id = driver.Id,
-						NumberRaw = driver.NumberRaw,
-						TeamName = driver.TeamName ?? string.Empty,
-						Position = driver.Position,
-						Lap = driver.Lap,
-						LapDistance = driver.LapDistance,
-						TrackSurface = driver.TrackSurface
-					});
+						snapshot.DriverStates.Add(new DriverSnapshot
+						{
+							Id = driver.Id,
+							NumberRaw = driver.NumberRaw,
+							TeamName = driver.TeamName ?? string.Empty,
+							Position = driver.Position,
+							Lap = driver.Lap,
+							LapDistance = driver.LapDistance,
+							TrackSurface = driver.TrackSurface
+						});
+					}
+					catch
+					{
+						// Skip this driver if any property access fails
+						continue;
+					}
 				}
 
 				return snapshot;
@@ -391,33 +427,44 @@ namespace iRacingReplayDirector.AI.Director
 				Events = LastScanResult.Events
 			};
 
-			// Add driver summaries
-			if (_viewModel.Drivers != null)
+			// Add driver summaries - use ToList() to avoid collection modified exception
+			try
 			{
-				foreach (var driver in _viewModel.Drivers.Where(d => d.TrackSurface != TrackSurfaces.NotInWorld))
+				if (_viewModel?.Drivers != null)
 				{
-					summary.Drivers.Add(new DriverSummary
+					var driversCopy = _viewModel.Drivers.ToList();
+					foreach (var driver in driversCopy.Where(d => d != null && d.TrackSurface != TrackSurfaces.NotInWorld))
 					{
-						NumberRaw = driver.NumberRaw,
-						TeamName = driver.TeamName,
-						StartPosition = 0, // Would need start snapshot
-						EndPosition = driver.Position
-					});
+						summary.Drivers.Add(new DriverSummary
+						{
+							NumberRaw = driver.NumberRaw,
+							TeamName = driver.TeamName ?? string.Empty,
+							StartPosition = 0,
+							EndPosition = driver.Position
+						});
+					}
 				}
 			}
+			catch { }
 
-			// Add camera summaries
-			if (_viewModel.Cameras != null)
+			// Add camera summaries - use ToList() to avoid collection modified exception
+			try
 			{
-				foreach (var camera in _viewModel.Cameras)
+				if (_viewModel?.Cameras != null)
 				{
-					summary.AvailableCameras.Add(new CameraSummary
+					var camerasCopy = _viewModel.Cameras.ToList();
+					foreach (var camera in camerasCopy)
 					{
-						GroupNum = camera.GroupNum,
-						GroupName = camera.GroupName
-					});
+						if (camera == null) continue;
+						summary.AvailableCameras.Add(new CameraSummary
+						{
+							GroupNum = camera.GroupNum,
+							GroupName = camera.GroupName ?? string.Empty
+						});
+					}
 				}
 			}
+			catch { }
 
 			return summary;
 		}
