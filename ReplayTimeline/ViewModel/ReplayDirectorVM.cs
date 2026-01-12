@@ -1,4 +1,5 @@
-﻿using System;
+﻿using iRacingReplayDirector.AI.Director;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -88,6 +89,14 @@ namespace iRacingReplayDirector
 			ResetAppSettingsCommand = new ResetAppSettingsCommand(this);
 			OpenURLCommand = new OpenURLCommand(this);
 			AboutCommand = new AboutCommand(this);
+
+			// Initialize AI Director
+			AIDirector = new AIDirector(this);
+			ScanReplayCommand = new ScanReplayCommand(this);
+			GenerateCameraPlanCommand = new GenerateCameraPlanCommand(this);
+			ApplyAIPlanCommand = new ApplyAIPlanCommand(this);
+			ClearAIResultsCommand = new ClearAIResultsCommand(this);
+			OpenAISettingsCommand = new OpenAISettingsCommand(this);
 		}
 
 		public void ApplicationClosing(Size windowSize)

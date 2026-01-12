@@ -37,6 +37,16 @@
 					<MenuItem Header="Clear All Nodes" Command="{Binding ClearAllNodesCommand}" />
 				</MenuItem>
 
+				<MenuItem Header="AI Director">
+					<MenuItem Header="Scan Replay for Events" Command="{Binding ScanReplayCommand}"/>
+					<MenuItem Header="Generate Camera Plan" Command="{Binding GenerateCameraPlanCommand}"/>
+					<MenuItem Header="Apply AI Plan" Command="{Binding ApplyAIPlanCommand}"/>
+					<Separator />
+					<MenuItem Header="Clear AI Results" Command="{Binding ClearAIResultsCommand}"/>
+					<Separator />
+					<MenuItem Header="Settings..." Command="{Binding OpenAISettingsCommand}"/>
+				</MenuItem>
+
 				<MenuItem Header="View">
 					<MenuItem Header="Always On Top" IsCheckable="True" IsChecked="{Binding WindowAlwaysOnTop}" />
 					<Separator />

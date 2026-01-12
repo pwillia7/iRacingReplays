@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using iRacingReplayDirector.AI.Director;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
 using iRacingSdkWrapper.Bitfields;
@@ -501,6 +502,20 @@ namespace iRacingReplayDirector
 		public ToggleRecordingOnFinalNodeCommand ToggleRecordingOnFinalNodeCommand { get; set; }
 
 		public ToggleShowInactiveDriversCommand ToggleShowInactiveDriversCommand { get; set; }
+
+		// AI Director Commands
+		public ScanReplayCommand ScanReplayCommand { get; set; }
+		public GenerateCameraPlanCommand GenerateCameraPlanCommand { get; set; }
+		public ApplyAIPlanCommand ApplyAIPlanCommand { get; set; }
+		public ClearAIResultsCommand ClearAIResultsCommand { get; set; }
+		public OpenAISettingsCommand OpenAISettingsCommand { get; set; }
+		#endregion
+
+		/// <summary>
+		/// AI DIRECTOR
+		/// </summary>
+		#region AI Director
+		public AIDirector AIDirector { get; private set; }
 		#endregion
 	}
 }

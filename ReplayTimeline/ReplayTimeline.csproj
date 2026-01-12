@@ -129,6 +129,38 @@
     <Compile Include="Model\TimelineProject.cs" />
     <Compile Include="ViewModel\ReplayDirectorVM.cs" />
     <Compile Include="Commands\Nodes\CamChangeNodeCommand.cs" />
+    <!-- AI Director -->
+    <Compile Include="AI\Models\RaceEvent.cs" />
+    <Compile Include="AI\Models\DriverSnapshot.cs" />
+    <Compile Include="AI\Models\TelemetrySnapshot.cs" />
+    <Compile Include="AI\Models\ReplayScanResult.cs" />
+    <Compile Include="AI\Models\RaceEventSummary.cs" />
+    <Compile Include="AI\Models\CameraAction.cs" />
+    <Compile Include="AI\Models\CameraPlan.cs" />
+    <Compile Include="AI\EventDetection\IEventDetector.cs" />
+    <Compile Include="AI\EventDetection\IncidentDetector.cs" />
+    <Compile Include="AI\EventDetection\OvertakeDetector.cs" />
+    <Compile Include="AI\EventDetection\BattleDetector.cs" />
+    <Compile Include="AI\LLM\ILLMProvider.cs" />
+    <Compile Include="AI\LLM\LLMProviderBase.cs" />
+    <Compile Include="AI\LLM\OpenAIProvider.cs" />
+    <Compile Include="AI\LLM\LocalModelProvider.cs" />
+    <Compile Include="AI\LLM\PromptTemplates.cs" />
+    <Compile Include="AI\Director\AIDirectorSettings.cs" />
+    <Compile Include="AI\Director\AIDirector.cs" />
+    <Compile Include="Commands\AI\ScanReplayCommand.cs" />
+    <Compile Include="Commands\AI\GenerateCameraPlanCommand.cs" />
+    <Compile Include="Commands\AI\ApplyAIPlanCommand.cs" />
+    <Compile Include="Commands\AI\ClearAIResultsCommand.cs" />
+    <Compile Include="Commands\AI\OpenAISettingsCommand.cs" />
+    <Page Include="View\AIDirectorSettingsWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="View\AIDirectorSettingsWindow.xaml.cs">
+      <DependentUpon>AIDirectorSettingsWindow.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Page Include="View\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

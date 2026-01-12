@@ -1,0 +1,95 @@
+<Window x:Class="iRacingReplayDirector.AIDirectorSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="AI Director Settings" Height="450" Width="500"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Grid.Row="0" Text="AI Director Settings" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+
+        <!-- Settings Content -->
+        <TabControl Grid.Row="1">
+            <!-- LLM Provider Tab -->
+            <TabItem Header="LLM Provider">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Select Provider:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                    <ComboBox x:Name="ProviderComboBox" Width="200" HorizontalAlignment="Left"
+                              SelectionChanged="ProviderComboBox_SelectionChanged">
+                        <ComboBoxItem Content="OpenAI" Tag="OpenAI"/>
+                        <ComboBoxItem Content="Local Model" Tag="Local"/>
+                    </ComboBox>
+
+                    <!-- OpenAI Settings -->
+                    <StackPanel x:Name="OpenAIPanel" Margin="0,15,0,0">
+                        <TextBlock Text="OpenAI Settings" FontWeight="SemiBold" Margin="0,0,0,5"/>
+
+                        <TextBlock Text="API Key:" Margin="0,5,0,2"/>
+                        <PasswordBox x:Name="ApiKeyBox" Width="350" HorizontalAlignment="Left"/>
+
+                        <TextBlock Text="Model:" Margin="0,10,0,2"/>
+                        <ComboBox x:Name="OpenAIModelComboBox" Width="200" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="gpt-4o" IsSelected="True"/>
+                            <ComboBoxItem Content="gpt-4o-mini"/>
+                            <ComboBoxItem Content="gpt-4-turbo"/>
+                            <ComboBoxItem Content="gpt-3.5-turbo"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <!-- Local Model Settings -->
+                    <StackPanel x:Name="LocalModelPanel" Margin="0,15,0,0" Visibility="Collapsed">
+                        <TextBlock Text="Local Model Settings" FontWeight="SemiBold" Margin="0,0,0,5"/>
+
+                        <TextBlock Text="Endpoint URL:" Margin="0,5,0,2"/>
+                        <TextBox x:Name="LocalEndpointBox" Width="350" HorizontalAlignment="Left"
+                                 Text="http://localhost:11434/v1/chat/completions"/>
+
+                        <TextBlock Text="Model Name:" Margin="0,10,0,2"/>
+                        <TextBox x:Name="LocalModelNameBox" Width="200" HorizontalAlignment="Left"
+                                 Text="llama3"/>
+                    </StackPanel>
+
+                    <Button Content="Test Connection" Width="120" HorizontalAlignment="Left" Margin="0,20,0,0"
+                            Click="TestConnection_Click"/>
+                    <TextBlock x:Name="ConnectionStatusText" Margin="0,5,0,0" Foreground="Gray"/>
+                </StackPanel>
+            </TabItem>
+
+            <!-- Event Detection Tab -->
+            <TabItem Header="Event Detection">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Enable Event Detection:" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+                    <CheckBox x:Name="DetectIncidentsCheckBox" Content="Detect Incidents (off-track, spins)"
+                              IsChecked="True" Margin="0,5,0,0"/>
+                    <CheckBox x:Name="DetectOvertakesCheckBox" Content="Detect Overtakes (position changes)"
+                              IsChecked="True" Margin="0,5,0,0"/>
+                    <CheckBox x:Name="DetectBattlesCheckBox" Content="Detect Battles (close racing)"
+                              IsChecked="True" Margin="0,5,0,0"/>
+
+                    <TextBlock Text="Scan Settings:" FontWeight="SemiBold" Margin="0,20,0,10"/>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Scan Interval (frames):" VerticalAlignment="Center"/>
+                        <TextBox x:Name="ScanIntervalBox" Width="60" Margin="10,0,0,0" Text="60"/>
+                    </StackPanel>
+                    <TextBlock Text="Lower = more detail but slower scan" FontSize="11" Foreground="Gray" Margin="0,2,0,0"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <!-- Footer Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Save" Width="80" Click="Save_Click" IsDefault="True"/>
+            <Button Content="Cancel" Width="80" Margin="10,0,0,0" Click="Cancel_Click" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
