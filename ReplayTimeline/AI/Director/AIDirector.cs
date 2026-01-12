@@ -573,6 +573,63 @@ namespace iRacingReplayDirector.AI.Director
 			State = AIDirectorState.Idle;
 		}
 
+		// Helper methods for synchronous scanning from command
+		public void SetScanning()
+		{
+			State = AIDirectorState.Scanning;
+			StatusMessage = "Scanning replay...";
+			ScanProgress = 0;
+		}
+
+		public void UpdateProgress(int progress, string message)
+		{
+			ScanProgress = progress;
+			StatusMessage = message;
+		}
+
+		public void RunDetectors(ReplayScanResult result, List<TelemetrySnapshot> snapshots)
+		{
+			try
+			{
+				foreach (var detector in _eventDetectors)
+				{
+					try
+					{
+						if (!ShouldRunDetector(detector))
+							continue;
+
+						var events = detector.DetectEvents(snapshots);
+						if (events != null)
+						{
+							result.Events.AddRange(events);
+						}
+					}
+					catch { }
+				}
+
+				// Sort events by frame
+				try
+				{
+					result.Events = result.Events.OrderBy(e => e.Frame).ToList();
+				}
+				catch { }
+			}
+			catch { }
+		}
+
+		public void SetScanComplete(ReplayScanResult result)
+		{
+			LastScanResult = result;
+			StatusMessage = $"Scan complete: {result.Events.Count} events detected";
+			State = AIDirectorState.Idle;
+		}
+
+		public void SetError(string message)
+		{
+			StatusMessage = message;
+			State = AIDirectorState.Error;
+		}
+
 		public event PropertyChangedEventHandler PropertyChanged;
 		private void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 	}
