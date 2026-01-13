@@ -517,36 +517,22 @@ namespace iRacingReplayDirector.AI.Director
 					_viewModel.NodeCollection.RemoveAllNodes();
 				}
 
-				// Create a special "Most Exciting" driver with NumberRaw = -1
-				// iRacing SDK uses -1 to automatically follow the most exciting action
-				var mostExcitingDriver = new Driver
-				{
-					Id = -1,
-					NumberRaw = -1,
-					Number = "-1",
-					Name = "Most Exciting",
-					TeamName = "Most Exciting"
-				};
-
 				int nodesCreated = 0;
 
 				foreach (var action in GeneratedPlan.CameraActions.OrderBy(a => a.Frame))
 				{
-					// Use "Most Exciting" driver for automatic driver selection
-					// If action specifies a driver (legacy support), try to find it; otherwise use most exciting
-					Driver driver;
-					if (action.DriverNumber > 0)
+					// Find the most interesting driver at this frame based on events
+					Driver driver = FindMostExcitingDriver(action.Frame);
+
+					if (driver == null)
 					{
-						driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == action.DriverNumber);
+						// Fallback to first available driver
+						driver = _viewModel.Drivers.FirstOrDefault(d => d.TrackSurface != TrackSurfaces.NotInWorld);
 						if (driver == null)
 						{
-							driver = mostExcitingDriver;
+							driver = _viewModel.Drivers.FirstOrDefault();
 						}
-					}
-					else
-					{
-						// Use most exciting driver (default behavior)
-						driver = mostExcitingDriver;
+						if (driver == null) continue;
 					}
 
 					// Find camera by name
@@ -582,6 +568,62 @@ namespace iRacingReplayDirector.AI.Director
 				State = AIDirectorState.Error;
 				throw;
 			}
+		}
+
+		/// <summary>
+		/// Find the most exciting driver at a given frame based on detected events.
+		/// Priority: Incidents > Battles > Overtakes > Race Leader
+		/// </summary>
+		private Driver FindMostExcitingDriver(int frame)
+		{
+			if (LastScanResult == null || LastScanResult.Events == null)
+				return null;
+
+			// Look for events within a window around this frame (about 5 seconds at 60fps)
+			int frameWindow = 300;
+			var nearbyEvents = LastScanResult.Events
+				.Where(e => Math.Abs(e.Frame - frame) <= frameWindow)
+				.OrderBy(e => Math.Abs(e.Frame - frame))
+				.ToList();
+
+			// Prioritize by event type
+			// 1. Incidents (most dramatic)
+			var incident = nearbyEvents.FirstOrDefault(e => e.EventType == RaceEventType.Incident);
+			if (incident != null)
+			{
+				var driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == incident.PrimaryDriverNumber);
+				if (driver != null) return driver;
+			}
+
+			// 2. Battles (exciting close racing)
+			var battle = nearbyEvents.FirstOrDefault(e => e.EventType == RaceEventType.Battle);
+			if (battle != null)
+			{
+				var driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == battle.PrimaryDriverNumber);
+				if (driver != null) return driver;
+			}
+
+			// 3. Overtakes (position changes)
+			var overtake = nearbyEvents.FirstOrDefault(e => e.EventType == RaceEventType.Overtake);
+			if (overtake != null)
+			{
+				var driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == overtake.PrimaryDriverNumber);
+				if (driver != null) return driver;
+			}
+
+			// 4. Any event with the highest importance score
+			var highestImportance = nearbyEvents.OrderByDescending(e => e.ImportanceScore).FirstOrDefault();
+			if (highestImportance != null)
+			{
+				var driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == highestImportance.PrimaryDriverNumber);
+				if (driver != null) return driver;
+			}
+
+			// 5. Fallback to race leader (position 1)
+			var leader = _viewModel.Drivers.FirstOrDefault(d => d.Position == 1 && d.TrackSurface != TrackSurfaces.NotInWorld);
+			if (leader != null) return leader;
+
+			return null;
 		}
 
 		public void ClearResults()

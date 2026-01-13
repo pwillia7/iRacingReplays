@@ -21,11 +21,6 @@ namespace iRacingReplayDirector
 			set { _camera = value; UpdateLabel(); OnPropertyChanged("Camera"); }
 		}
 
-		/// <summary>
-		/// Whether to use "Most Exciting" mode (iRacing automatically picks the driver)
-		/// </summary>
-		public bool UseMostExciting => Driver != null && Driver.NumberRaw == -1;
-
 		public CamChangeNode(bool enabled, int frame, Driver driver, Camera camera)
 		{
 			Enabled = enabled;
@@ -52,17 +47,8 @@ namespace iRacingReplayDirector
 			if (playbackEnabled && !Enabled)
 				return;
 
-			if (UseMostExciting)
-			{
-				// Use the wrapper's SwitchToPosition method for "Most Exciting" mode
-				// Position values: -1 = Most Exciting, -2 = Leader, -3 = Crashes
-				Sim.Instance.Sdk.Camera.SwitchToPosition(-1, Camera.GroupNum);
-			}
-			else
-			{
-				// Use standard method for specific driver
-				Sim.Instance.Sdk.Camera.SwitchToCar(Driver.NumberRaw, Camera.GroupNum);
-			}
+			// Switch to the specified driver and camera
+			Sim.Instance.Sdk.Camera.SwitchToCar(Driver.NumberRaw, Camera.GroupNum);
 
 			// If playback is disabled, skip to the frame
 			if (!playbackEnabled)

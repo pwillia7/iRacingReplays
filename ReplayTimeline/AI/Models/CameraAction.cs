@@ -7,10 +7,10 @@ namespace iRacingReplayDirector.AI.Models
 		[JsonProperty("frame")]
 		public int Frame { get; set; }
 
-		// DriverNumber is optional - defaults to -1 which means "most exciting" in iRacing
-		// The LLM no longer specifies drivers; iRacing's automatic selection handles it
+		// DriverNumber is optional - driver selection is now handled by AIDirector
+		// based on detected events (incidents, battles, overtakes)
 		[JsonProperty("driverNumber", NullValueHandling = NullValueHandling.Ignore)]
-		public int DriverNumber { get; set; } = -1;
+		public int DriverNumber { get; set; }
 
 		[JsonProperty("cameraName")]
 		public string CameraName { get; set; }
