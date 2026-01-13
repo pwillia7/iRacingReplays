@@ -1,4 +1,5 @@
 using System;
+using System.Windows;
 using System.Windows.Input;
 
 namespace iRacingReplayDirector
@@ -36,15 +37,44 @@ namespace iRacingReplayDirector
 		{
 			try
 			{
-				await ReplayDirectorVM.AIDirector.GenerateCameraPlanAsync();
+				var result = MessageBox.Show(
+					"Generate AI camera plan?\n\nThis will send race data to the configured LLM provider and may take a moment.",
+					"Generate Camera Plan",
+					MessageBoxButton.YesNo,
+					MessageBoxImage.Question);
+
+				if (result != MessageBoxResult.Yes)
+					return;
+
+				// Show generating message
+				ReplayDirectorVM.AIDirector.StatusMessage = "Generating camera plan... (this may take 30-60 seconds)";
+
+				var plan = await ReplayDirectorVM.AIDirector.GenerateCameraPlanAsync();
+
+				if (plan != null && plan.CameraActions.Count > 0)
+				{
+					MessageBox.Show(
+						$"Camera plan generated!\n\n{plan.CameraActions.Count} camera switches created.\n\nClick 'Apply Plan' to add them to the timeline.",
+						"Plan Generated",
+						MessageBoxButton.OK,
+						MessageBoxImage.Information);
+				}
+				else
+				{
+					MessageBox.Show(
+						"Plan generation completed but no camera actions were created.\n\nTry adjusting settings or re-scanning the replay.",
+						"No Actions Generated",
+						MessageBoxButton.OK,
+						MessageBoxImage.Warning);
+				}
 			}
 			catch (Exception ex)
 			{
-				System.Windows.MessageBox.Show(
+				MessageBox.Show(
 					$"Error generating camera plan: {ex.Message}",
 					"Generation Error",
-					System.Windows.MessageBoxButton.OK,
-					System.Windows.MessageBoxImage.Error);
+					MessageBoxButton.OK,
+					MessageBoxImage.Error);
 			}
 		}
 	}

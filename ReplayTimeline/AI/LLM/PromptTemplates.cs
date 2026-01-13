@@ -10,125 +10,101 @@ namespace iRacingReplayDirector.AI.LLM
 
 IMPORTANT: iRacing will automatically follow the 'most exciting' car at any moment. Your job is ONLY to select which CAMERA ANGLE to use and when to switch. You do NOT need to specify which driver to follow.
 
-AVAILABLE STANDARD CAMERAS (use exact names):
-- Nose: Front-facing camera on car nose, dramatic low angle
-- Gearbox: Rear-facing camera from gearbox area
-- Roll Bar: Over-the-shoulder view from roll bar
-- LF Susp / LR Susp / RF Susp / RR Susp: Suspension-mounted cameras, unique angles
-- Gyro: Stabilized onboard camera
-- Cockpit: Driver's eye view from inside the car
-- Scenic: Track-side beauty shots, good for replays
-- TV1 / TV2 / TV3: Traditional broadcast TV cameras at various track positions
-- Chopper: Helicopter camera for aerial views
-- Blimp: High overhead blimp camera
-- Chase: Behind-car chase camera
-- Far Chase: Wider chase camera further back
-- Rear Chase: Chase camera from behind
+CRITICAL - FRAME NUMBER CALCULATION:
+The replay uses FRAME NUMBERS, not timestamps. You will be given:
+- Start frame (e.g., 1000)
+- End frame (e.g., 37000)
+- Frame rate (typically 60 fps)
+
+To calculate frame numbers:
+- Each second = 60 frames (at 60fps)
+- To place a camera at 10 seconds into the replay: start_frame + (10 * 60)
+- To place a camera at 1 minute into the replay: start_frame + (60 * 60)
+
+EXAMPLE: If start_frame=1000, end_frame=37000, frame_rate=60:
+- First shot at start: frame 1000
+- Shot at 10 seconds: frame 1000 + 600 = 1600
+- Shot at 30 seconds: frame 1000 + 1800 = 2800
+- Shot at 1 minute: frame 1000 + 3600 = 4600
+- Shot at 5 minutes: frame 1000 + 18000 = 19000
+
+Your camera switches must be SPREAD EVENLY across the ENTIRE frame range from start to end.
+
+CAMERA TYPES (use exact names from the session's available cameras):
+- TV cameras (TV1, TV2, TV3): Wide broadcast angles, good for establishing shots
+- Chase/Far Chase/Rear Chase: Behind-car cameras, great for following action
+- Cockpit/Roll Bar: Driver's perspective, intense and immersive
+- Chopper/Blimp: Aerial views, excellent for showing the field
+- Nose/Gearbox/Gyro: Unique onboard angles
+- Scenic: Trackside beauty shots
 
 BROADCAST DIRECTING GUIDELINES:
-1. VARIETY IS KEY: Mix camera types throughout - don't overuse any single camera
-2. Establish-Detail-Establish rhythm: Wide shot (TV/Blimp) -> Close action (Chase/Cockpit) -> Wide shot
-3. Use TV cameras (TV1, TV2, TV3) for:
-   - Race starts and restarts
-   - Showing track position and gaps
-   - Corner entries with multiple cars
-4. Use Chase/Far Chase for:
-   - Close racing and battles
-   - Following action through corners
-   - Most of the general racing coverage
-5. Use Cockpit/Roll Bar for:
-   - Intense battles
-   - Demonstrating driver skill
-   - Weather conditions (rain, fog)
-6. Use Chopper/Blimp for:
-   - Opening establishing shots
-   - Showing the full field
-   - Transitions between track sections
-7. Use Scenic for:
-   - Brief artistic shots during calm moments
-   - Track beauty shots
-8. Camera timing:
-   - Wide establishing shots: 3-8 seconds
-   - TV cameras: 5-15 seconds
-   - Chase cameras: 8-20 seconds (longer for battles)
-   - Cockpit/onboard: 5-12 seconds
-   - Chopper/Blimp: 5-10 seconds
-
-SHOT SEQUENCING TIPS:
-- Never use the same camera twice in a row
-- After an intense close-up, cut to a wider shot
-- Build tension by moving from wide to progressively tighter shots
-- Use TV cameras to 're-establish' location on the track
+1. VARIETY: Mix camera types - never use the same camera twice in a row
+2. PACING: Switch cameras every 8-15 seconds on average
+3. RHYTHM: Wide shot -> Close action -> Wide shot
+4. Start with an establishing shot (TV, Blimp, or Chopper)
 
 OUTPUT FORMAT:
-Respond with ONLY valid JSON (no markdown, no explanation):
-{
-  ""cameraActions"": [
-    {
-      ""frame"": <integer - frame number to switch camera>,
-      ""cameraName"": <string - exact camera name from the list>,
-      ""duration"": <integer - duration in seconds>,
-      ""reason"": <string - brief explanation>
-    }
-  ]
-}
+Respond with ONLY valid JSON (no markdown, no code blocks, no explanation):
+{""cameraActions"":[{""frame"":1000,""cameraName"":""TV1"",""reason"":""Opening wide shot""},{""frame"":1600,""cameraName"":""Chase"",""reason"":""Follow the action""}]}
 
-Sort cameraActions by frame number ascending.";
+Each camera action needs: frame (integer), cameraName (string), reason (string).
+Sort by frame number ascending. Spread actions across the ENTIRE replay duration.";
 
 		public static string BuildUserPrompt(RaceEventSummary summary)
 		{
 			var sb = new StringBuilder();
 
-			sb.AppendLine("Create a comprehensive camera plan for this race replay.");
-			sb.AppendLine("Remember: iRacing automatically follows the most exciting action - you only choose WHICH CAMERA to use.");
+			int fps = summary.FrameRate > 0 ? summary.FrameRate : 60;
+			int totalFrames = summary.TotalFrames > 0 ? summary.TotalFrames : (summary.EndFrame - summary.StartFrame);
+			double durationSeconds = totalFrames / (double)fps;
+			double durationMinutes = durationSeconds / 60.0;
+
+			// Calculate target number of cuts (one every 10 seconds on average)
+			int targetCuts = (int)(durationSeconds / 10);
+			if (targetCuts < 5) targetCuts = 5;
+			if (targetCuts > 80) targetCuts = 80;
+
+			// Calculate frames per cut for even spacing
+			int framesPerCut = totalFrames / targetCuts;
+
+			sb.AppendLine("=== CAMERA PLAN REQUEST ===");
+			sb.AppendLine();
+			sb.AppendLine($"Track: {summary.TrackName ?? "Unknown Track"}");
+			sb.AppendLine($"Session: {summary.SessionType ?? "Race"}");
 			sb.AppendLine();
 
-			// Race info
-			sb.AppendLine("RACE INFO:");
-			sb.AppendLine($"- Track: {summary.TrackName ?? "Unknown Track"}");
-			sb.AppendLine($"- Session: {summary.SessionType ?? "Race"}");
-			sb.AppendLine($"- Duration: {summary.TotalFrames} frames ({summary.DurationMinutes:F1} minutes)");
-			sb.AppendLine($"- Frame rate: {summary.FrameRate} fps");
-			sb.AppendLine($"- Start frame: {summary.StartFrame}");
-			sb.AppendLine($"- End frame: {summary.EndFrame}");
+			// CRITICAL frame information with examples
+			sb.AppendLine("=== FRAME NUMBERS (CRITICAL) ===");
+			sb.AppendLine($"START FRAME: {summary.StartFrame}");
+			sb.AppendLine($"END FRAME: {summary.EndFrame}");
+			sb.AppendLine($"TOTAL FRAMES: {totalFrames}");
+			sb.AppendLine($"FRAME RATE: {fps} fps");
+			sb.AppendLine($"DURATION: {durationMinutes:F1} minutes ({durationSeconds:F0} seconds)");
+			sb.AppendLine();
+
+			// Pre-calculated example frames to help the LLM
+			sb.AppendLine("=== EXAMPLE FRAME NUMBERS FOR THIS REPLAY ===");
+			sb.AppendLine($"Start of replay: {summary.StartFrame}");
+
+			// Calculate some milestone frames
+			int quarterFrame = summary.StartFrame + (totalFrames / 4);
+			int halfFrame = summary.StartFrame + (totalFrames / 2);
+			int threeQuarterFrame = summary.StartFrame + (3 * totalFrames / 4);
+
+			sb.AppendLine($"25% through replay: {quarterFrame}");
+			sb.AppendLine($"50% through replay (middle): {halfFrame}");
+			sb.AppendLine($"75% through replay: {threeQuarterFrame}");
+			sb.AppendLine($"End of replay: {summary.EndFrame}");
+			sb.AppendLine();
+			sb.AppendLine($"For {targetCuts} camera switches, space them approximately {framesPerCut} frames apart.");
 			sb.AppendLine();
 
 			// Available cameras from this session
-			sb.AppendLine("CAMERAS AVAILABLE IN THIS SESSION:");
+			sb.AppendLine("=== AVAILABLE CAMERAS (use these exact names) ===");
 			if (summary.AvailableCameras != null && summary.AvailableCameras.Count > 0)
 			{
-				// Categorize cameras
-				var tvCameras = summary.AvailableCameras.Where(c => c.GroupName.StartsWith("TV")).ToList();
-				var chaseCameras = summary.AvailableCameras.Where(c => c.GroupName.ToLower().Contains("chase")).ToList();
-				var onboardCameras = summary.AvailableCameras.Where(c =>
-					c.GroupName == "Cockpit" || c.GroupName == "Roll Bar" || c.GroupName == "Gyro" ||
-					c.GroupName == "Nose" || c.GroupName == "Gearbox" || c.GroupName.Contains("Susp")).ToList();
-				var aerialCameras = summary.AvailableCameras.Where(c =>
-					c.GroupName == "Chopper" || c.GroupName == "Blimp").ToList();
-				var otherCameras = summary.AvailableCameras.Where(c =>
-					!tvCameras.Contains(c) && !chaseCameras.Contains(c) &&
-					!onboardCameras.Contains(c) && !aerialCameras.Contains(c)).ToList();
-
-				if (tvCameras.Any())
-				{
-					sb.AppendLine("TV/Broadcast cameras: " + string.Join(", ", tvCameras.Select(c => c.GroupName)));
-				}
-				if (chaseCameras.Any())
-				{
-					sb.AppendLine("Chase cameras: " + string.Join(", ", chaseCameras.Select(c => c.GroupName)));
-				}
-				if (onboardCameras.Any())
-				{
-					sb.AppendLine("Onboard cameras: " + string.Join(", ", onboardCameras.Select(c => c.GroupName)));
-				}
-				if (aerialCameras.Any())
-				{
-					sb.AppendLine("Aerial cameras: " + string.Join(", ", aerialCameras.Select(c => c.GroupName)));
-				}
-				if (otherCameras.Any())
-				{
-					sb.AppendLine("Other cameras: " + string.Join(", ", otherCameras.Select(c => c.GroupName)));
-				}
+				sb.AppendLine(string.Join(", ", summary.AvailableCameras.Select(c => c.GroupName)));
 			}
 			else
 			{
@@ -136,47 +112,26 @@ Sort cameraActions by frame number ascending.";
 			}
 			sb.AppendLine();
 
-			// Events for context (helps LLM know when action happens)
-			sb.AppendLine("KEY MOMENTS (for camera selection context):");
+			// Events for context
 			if (summary.Events != null && summary.Events.Count > 0)
 			{
-				var sortedEvents = summary.Events
-					.OrderBy(e => e.Frame)
-					.Take(30);
-
+				sb.AppendLine("=== KEY MOMENTS (adjust cameras around these frames) ===");
+				var sortedEvents = summary.Events.OrderBy(e => e.Frame).Take(20);
 				foreach (var evt in sortedEvents)
 				{
-					string cameraHint = "";
-					switch (evt.EventType)
-					{
-						case RaceEventType.Incident:
-							cameraHint = " -> consider TV or Chopper to show aftermath";
-							break;
-						case RaceEventType.Overtake:
-							cameraHint = " -> consider Chase or TV for the pass";
-							break;
-						case RaceEventType.Battle:
-							cameraHint = " -> consider Chase or Cockpit for intensity";
-							break;
-					}
-					sb.AppendLine($"- Frame {evt.Frame}: {evt.Description}{cameraHint}");
+					sb.AppendLine($"Frame {evt.Frame}: {evt.Description}");
 				}
+				sb.AppendLine();
 			}
-			else
-			{
-				sb.AppendLine("- No specific events detected. Create varied general race coverage.");
-			}
+
+			// Final instructions
+			sb.AppendLine("=== YOUR TASK ===");
+			sb.AppendLine($"Create exactly {targetCuts} camera switches spread across the ENTIRE replay.");
+			sb.AppendLine($"First camera switch MUST be at frame {summary.StartFrame}.");
+			sb.AppendLine($"Last camera switch should be near frame {summary.EndFrame - (framesPerCut / 2)}.");
+			sb.AppendLine("Use a VARIETY of different cameras - never repeat the same camera twice in a row.");
 			sb.AppendLine();
-
-			// Request
-			int targetCuts = (int)(summary.DurationMinutes * 6); // About 6 cuts per minute for dynamic coverage
-			if (targetCuts < 10) targetCuts = 10;
-			if (targetCuts > 100) targetCuts = 100;
-
-			sb.AppendLine($"Create approximately {targetCuts} camera switches for professional broadcast-style coverage.");
-			sb.AppendLine("IMPORTANT: Use a good MIX of different camera types throughout the replay.");
-			sb.AppendLine("Start with an establishing shot (TV, Blimp, or Chopper) at the start frame.");
-			sb.AppendLine("Use the EXACT camera names from the list above.");
+			sb.AppendLine("Respond with ONLY the JSON object, no other text.");
 
 			return sb.ToString();
 		}
