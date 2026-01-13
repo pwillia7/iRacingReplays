@@ -36,7 +36,8 @@ CAMERA TYPES (use exact names from the session's available cameras):
 - Cockpit/Roll Bar: Driver's perspective, intense and immersive
 - Chopper/Blimp: Aerial views, excellent for showing the field
 - Nose/Gearbox/Gyro: Unique onboard angles
-- Scenic: Trackside beauty shots
+
+DO NOT USE: Scenic (this camera doesn't show the cars)
 
 BROADCAST DIRECTING GUIDELINES:
 1. VARIETY: Mix camera types - never use the same camera twice in a row
@@ -100,11 +101,14 @@ Sort by frame number ascending. Spread actions across the ENTIRE replay duration
 			sb.AppendLine($"For {targetCuts} camera switches, space them approximately {framesPerCut} frames apart.");
 			sb.AppendLine();
 
-			// Available cameras from this session
+			// Available cameras from this session (exclude Scenic as it doesn't show cars)
 			sb.AppendLine("=== AVAILABLE CAMERAS (use these exact names) ===");
 			if (summary.AvailableCameras != null && summary.AvailableCameras.Count > 0)
 			{
-				sb.AppendLine(string.Join(", ", summary.AvailableCameras.Select(c => c.GroupName)));
+				var validCameras = summary.AvailableCameras
+					.Where(c => !c.GroupName.Equals("Scenic", System.StringComparison.OrdinalIgnoreCase))
+					.Select(c => c.GroupName);
+				sb.AppendLine(string.Join(", ", validCameras));
 			}
 			else
 			{
