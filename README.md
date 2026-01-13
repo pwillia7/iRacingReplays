@@ -11,8 +11,43 @@ Create your own replay edits without any required editing knowledge. Create 'nod
 - Each replay has its own save file so no need to edit everything in one session
 - Works with custom cameras for setting up your own shots with the iRacing camera tool
 - Resizeable window for users with limited screen space
+- **AI Director** - Automatically generate camera plans using LLM-powered analysis
 
 ![App screenshot](https://i.ibb.co/6nGVxfh/Main.png)
+
+## AI Director
+
+The AI Director feature automatically analyzes your replay and generates professional-style camera sequences using AI/LLM technology.
+
+### How It Works
+
+1. **Scan Replay** - The AI Director scans through your replay detecting key events:
+   - **Incidents** - Off-track excursions, spins, contact
+   - **Battles** - Close racing between drivers (gap < 2% of lap)
+   - **Overtakes** - Position changes between drivers
+
+2. **Generate Camera Plan** - Send the detected events to an LLM (OpenAI or local model) which creates a broadcast-style camera sequence with varied angles and pacing.
+
+3. **Apply Plan** - The generated camera switches are added to your node list, ready for playback or recording.
+
+### Driver Selection System
+
+The AI Director uses a sophisticated scoring system to choose which driver to focus on at any moment:
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Event Proximity | High (60 pts) | Drivers involved in nearby events (incidents, battles, overtakes) |
+| Event Type | Varies | Incidents (60), Battles (45), Overtakes (40), Race Start/Finish (35) |
+| Position | Medium (15 pts) | Race position importance (leader gets more coverage) |
+| Variety Penalty | Strong (-80 pts) | Recently shown drivers are penalized to ensure variety |
+| Overexposure Penalty | Medium (-40 pts) | Drivers shown too often get reduced priority |
+| Field Diversity | Bonus (+25 pts) | Periodically boosts midfield/back drivers for coverage |
+
+### LLM Configuration
+
+Access AI Director settings via the menu to configure:
+- **OpenAI** - Use GPT models with your API key
+- **Local Models** - Use Ollama, LM Studio, or any OpenAI-compatible endpoint
 
 ## Installation
 
