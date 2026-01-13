@@ -52,24 +52,10 @@ namespace iRacingReplayDirector
 			if (playbackEnabled && !Enabled)
 				return;
 
-			// Switch camera
-			if (UseMostExciting)
-			{
-				// Use raw SDK broadcast for "Most Exciting" mode
-				// BroadcastMessageTypes.CamSwitchNum = 1
-				// Parameters: carNumber (-1 = most exciting), cameraGroup, cameraNumber (0 = auto)
-				// Pack cameraGroup and cameraNumber into second parameter: (group << 16) | camera
-				int packedCameraInfo = (Camera.GroupNum << 16) | 0;
-				Sim.Instance.Sdk.Sdk.BroadcastMessage(
-					iRSDKSharp.BroadcastMessageTypes.CamSwitchNum,
-					-1,  // -1 = Most Exciting
-					packedCameraInfo);
-			}
-			else
-			{
-				// Use standard method for specific driver
-				Sim.Instance.Sdk.Camera.SwitchToCar(Driver.NumberRaw, Camera.GroupNum);
-			}
+			// Switch driver and camera
+			// For "Most Exciting" mode, Driver.NumberRaw will be -1
+			// The SDK should handle -1 as "most exciting" automatic driver selection
+			Sim.Instance.Sdk.Camera.SwitchToCar(Driver.NumberRaw, Camera.GroupNum);
 
 			// If playback is disabled, skip to the frame
 			if (!playbackEnabled)
