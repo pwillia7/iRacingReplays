@@ -57,11 +57,13 @@ namespace iRacingReplayDirector
 				// Use CamSwitchPos with position -1 for "Most Exciting" mode
 				// CamSwitchPos uses position instead of car number
 				// -1 = Most Exciting, -2 = Leader, -3 = Crashes
-				Sim.Instance.Sdk.Sdk.Broadcast(
+				// BroadcastMessage takes 3 params: (type, var1, var2)
+				// var2 packs cameraGroup and cameraNum: (group << 16) | camNum
+				int packedCamera = (Camera.GroupNum << 16) | 0;
+				Sim.Instance.Sdk.Sdk.BroadcastMessage(
 					iRSDKSharp.BroadcastMessageTypes.CamSwitchPos,
 					-1,  // Position -1 = Most Exciting
-					Camera.GroupNum,
-					0);  // Camera number 0 = auto
+					packedCamera);
 			}
 			else
 			{
