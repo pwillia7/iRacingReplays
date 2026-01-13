@@ -517,17 +517,36 @@ namespace iRacingReplayDirector.AI.Director
 					_viewModel.NodeCollection.RemoveAllNodes();
 				}
 
+				// Create a special "Most Exciting" driver with NumberRaw = -1
+				// iRacing SDK uses -1 to automatically follow the most exciting action
+				var mostExcitingDriver = new Driver
+				{
+					Id = -1,
+					NumberRaw = -1,
+					Number = "-1",
+					Name = "Most Exciting",
+					TeamName = "Most Exciting"
+				};
+
 				int nodesCreated = 0;
 
 				foreach (var action in GeneratedPlan.CameraActions.OrderBy(a => a.Frame))
 				{
-					// Find driver by number
-					var driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == action.DriverNumber);
-					if (driver == null)
+					// Use "Most Exciting" driver for automatic driver selection
+					// If action specifies a driver (legacy support), try to find it; otherwise use most exciting
+					Driver driver;
+					if (action.DriverNumber > 0)
 					{
-						// Try to find any driver if specified one not found
-						driver = _viewModel.Drivers.FirstOrDefault();
-						if (driver == null) continue;
+						driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == action.DriverNumber);
+						if (driver == null)
+						{
+							driver = mostExcitingDriver;
+						}
+					}
+					else
+					{
+						// Use most exciting driver (default behavior)
+						driver = mostExcitingDriver;
 					}
 
 					// Find camera by name
