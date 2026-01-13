@@ -53,7 +53,7 @@ namespace iRacingReplayDirector.AI.Director
 		public string StatusMessage
 		{
 			get { return _statusMessage; }
-			private set { _statusMessage = value; SafeRaisePropertyChanged("StatusMessage"); }
+			set { _statusMessage = value; SafeRaisePropertyChanged("StatusMessage"); }
 		}
 
 		private ReplayScanResult _lastScanResult;
