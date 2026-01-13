@@ -529,28 +529,34 @@ namespace iRacingReplayDirector.AI.Director
 
 					if (driver == null)
 					{
-						// Fallback to first available driver
-						driver = _viewModel.Drivers.FirstOrDefault(d => d.TrackSurface != TrackSurfaces.NotInWorld);
+						// Fallback to first available driver (exclude pace car)
+						driver = _viewModel.Drivers.FirstOrDefault(d => d.TrackSurface != TrackSurfaces.NotInWorld && d.NumberRaw != 0);
 						if (driver == null)
 						{
-							driver = _viewModel.Drivers.FirstOrDefault();
+							driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw != 0);
 						}
 						if (driver == null) continue;
 					}
 
-					// Find camera by name
+					// Excluded cameras that don't show good racing action
+					var excludedCameras = new[] { "Scenic", "Pit Lane", "Rear Chase" };
+
+					// Find camera by name (excluding restricted cameras)
 					var camera = _viewModel.Cameras.FirstOrDefault(c =>
-						c.GroupName.Equals(action.CameraName, StringComparison.OrdinalIgnoreCase));
+						c.GroupName.Equals(action.CameraName, StringComparison.OrdinalIgnoreCase) &&
+						!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
 					if (camera == null)
 					{
-						// Try partial match
+						// Try partial match (excluding restricted cameras)
 						camera = _viewModel.Cameras.FirstOrDefault(c =>
-							c.GroupName.IndexOf(action.CameraName, StringComparison.OrdinalIgnoreCase) >= 0);
+							c.GroupName.IndexOf(action.CameraName, StringComparison.OrdinalIgnoreCase) >= 0 &&
+							!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
 					}
 					if (camera == null)
 					{
-						// Use first available camera as fallback
-						camera = _viewModel.Cameras.FirstOrDefault();
+						// Use first available non-excluded camera as fallback
+						camera = _viewModel.Cameras.FirstOrDefault(c =>
+							!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
 						if (camera == null) continue;
 					}
 
@@ -640,7 +646,7 @@ namespace iRacingReplayDirector.AI.Director
 		private Driver FindMostExcitingDriver(int frame)
 		{
 			var activeDrivers = _viewModel.Drivers
-				.Where(d => d != null && d.TrackSurface != TrackSurfaces.NotInWorld)
+				.Where(d => d != null && d.TrackSurface != TrackSurfaces.NotInWorld && d.NumberRaw != 0) // Exclude pace car (NumberRaw == 0)
 				.ToList();
 
 			if (!activeDrivers.Any())
@@ -941,9 +947,9 @@ namespace iRacingReplayDirector.AI.Director
 
 		private Driver GetFallbackDriver(List<Driver> activeDrivers)
 		{
-			// Fallback: cycle through positions, avoiding recently selected
+			// Fallback: cycle through positions, avoiding recently selected (and pace car)
 			var orderedDrivers = activeDrivers
-				.Where(d => d.Position > 0)
+				.Where(d => d.Position > 0 && d.NumberRaw != 0) // Exclude pace car
 				.OrderBy(d => d.Position)
 				.ToList();
 
@@ -967,7 +973,7 @@ namespace iRacingReplayDirector.AI.Director
 				return backRunner;
 			}
 
-			return activeDrivers.FirstOrDefault();
+			return activeDrivers.FirstOrDefault(d => d.NumberRaw != 0);
 		}
 
 		// Helper class to track driver scoring
