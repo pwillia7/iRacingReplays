@@ -629,48 +629,69 @@ namespace iRacingReplayDirector.AI.Director
 
 				int nodesCreated = 0;
 
+				// Excluded cameras that don't show good racing action
+				var excludedCameras = new[] { "Scenic", "Pit Lane", "Pit Lane 2", "Chase", "Far Chase" };
+
 				foreach (var action in GeneratedPlan.CameraActions.OrderBy(a => a.Frame))
 				{
-					// Find the most interesting driver at this frame based on events
-					Driver driver = FindMostExcitingDriver(action.Frame);
+					// Find camera first (same for all nodes from this action)
+					var camera = FindCamera(action.CameraName, excludedCameras);
+					if (camera == null) continue;
 
-					if (driver == null)
+					// Determine the primary driver
+					Driver primaryDriver = null;
+
+					// First, try to use the AI's specified driver number
+					if (action.DriverNumber > 0)
 					{
-						// Fallback to first available driver (exclude pace car)
-						driver = _viewModel.Drivers.FirstOrDefault(d => d.TrackSurface != TrackSurfaces.NotInWorld && d.NumberRaw != 0);
-						if (driver == null)
-						{
-							driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw != 0);
-						}
-						if (driver == null) continue;
+						primaryDriver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == action.DriverNumber);
 					}
 
-					// Excluded cameras that don't show good racing action
-					var excludedCameras = new[] { "Scenic", "Pit Lane", "Pit Lane 2", "Chase", "Far Chase" };
-
-					// Find camera by name (excluding restricted cameras)
-					var camera = _viewModel.Cameras.FirstOrDefault(c =>
-						c.GroupName.Equals(action.CameraName, StringComparison.OrdinalIgnoreCase) &&
-						!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
-					if (camera == null)
+					// If AI didn't specify or driver not found, use our event-based selection
+					if (primaryDriver == null)
 					{
-						// Try partial match (excluding restricted cameras)
-						camera = _viewModel.Cameras.FirstOrDefault(c =>
-							c.GroupName.IndexOf(action.CameraName, StringComparison.OrdinalIgnoreCase) >= 0 &&
-							!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
-					}
-					if (camera == null)
-					{
-						// Use first available non-excluded camera as fallback
-						camera = _viewModel.Cameras.FirstOrDefault(c =>
-							!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
-						if (camera == null) continue;
+						primaryDriver = FindMostExcitingDriver(action.Frame);
 					}
 
-					// Create and add node
-					var node = new CamChangeNode(true, action.Frame, driver, camera);
+					// Ultimate fallback
+					if (primaryDriver == null)
+					{
+						primaryDriver = _viewModel.Drivers.FirstOrDefault(d => d.TrackSurface != TrackSurfaces.NotInWorld && d.NumberRaw != 0);
+						if (primaryDriver == null) continue;
+					}
+
+					// Create the primary camera node
+					var node = new CamChangeNode(true, action.Frame, primaryDriver, camera);
 					_viewModel.NodeCollection.AddNode(node);
 					nodesCreated++;
+
+					// Handle driver sequence (multiple drivers in one action)
+					if (action.DriverSequence != null && action.DriverSequence.Count > 0)
+					{
+						foreach (var driverFocus in action.DriverSequence)
+						{
+							if (driverFocus.AtFrame <= action.Frame) continue; // Skip if before or at primary frame
+
+							var sequenceDriver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == driverFocus.DriverNumber);
+							if (sequenceDriver != null)
+							{
+								var sequenceNode = new CamChangeNode(true, driverFocus.AtFrame, sequenceDriver, camera);
+								_viewModel.NodeCollection.AddNode(sequenceNode);
+								nodesCreated++;
+							}
+						}
+					}
+					// Handle simple secondary driver switch
+					else if (action.SecondaryDriverNumber.HasValue && action.SwitchToSecondaryAtFrame.HasValue)
+					{
+						var secondaryDriver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == action.SecondaryDriverNumber.Value);
+						if (secondaryDriver != null && action.SwitchToSecondaryAtFrame.Value > action.Frame)
+						{
+							var secondaryNode = new CamChangeNode(true, action.SwitchToSecondaryAtFrame.Value, secondaryDriver, camera);
+							_viewModel.NodeCollection.AddNode(secondaryNode);
+							nodesCreated++;
+						}
+					}
 				}
 
 				StatusMessage = $"Applied {nodesCreated} camera nodes";
@@ -684,6 +705,31 @@ namespace iRacingReplayDirector.AI.Director
 				State = AIDirectorState.Error;
 				throw;
 			}
+		}
+
+		private Camera FindCamera(string cameraName, string[] excludedCameras)
+		{
+			// Find camera by exact name (excluding restricted cameras)
+			var camera = _viewModel.Cameras.FirstOrDefault(c =>
+				c.GroupName.Equals(cameraName, StringComparison.OrdinalIgnoreCase) &&
+				!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
+
+			if (camera == null)
+			{
+				// Try partial match (excluding restricted cameras)
+				camera = _viewModel.Cameras.FirstOrDefault(c =>
+					c.GroupName.IndexOf(cameraName, StringComparison.OrdinalIgnoreCase) >= 0 &&
+					!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
+			}
+
+			if (camera == null)
+			{
+				// Use first available non-excluded camera as fallback
+				camera = _viewModel.Cameras.FirstOrDefault(c =>
+					!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
+			}
+
+			return camera;
 		}
 
 		// Track recently selected drivers to ensure variety

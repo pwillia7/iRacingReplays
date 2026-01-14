@@ -8,7 +8,7 @@ namespace iRacingReplayDirector.AI.LLM
 	{
 		public static string SystemPrompt => @"You are an expert motorsport broadcast director creating camera sequences for iRacing replays.
 
-IMPORTANT: iRacing will automatically follow the 'most exciting' car at any moment. Your job is ONLY to select which CAMERA ANGLE to use and when to switch. You do NOT need to specify which driver to follow.
+YOUR ROLE: Select camera angles AND specify which drivers to focus on for dynamic, engaging coverage.
 
 CRITICAL - FRAME NUMBER CALCULATION:
 The replay uses FRAME NUMBERS, not timestamps. You will be given:
@@ -25,31 +25,46 @@ EXAMPLE: If start_frame=1000, end_frame=37000, frame_rate=60:
 - First shot at start: frame 1000
 - Shot at 10 seconds: frame 1000 + 600 = 1600
 - Shot at 30 seconds: frame 1000 + 1800 = 2800
-- Shot at 1 minute: frame 1000 + 3600 = 4600
-- Shot at 5 minutes: frame 1000 + 18000 = 19000
-
-Your camera switches must be SPREAD EVENLY across the ENTIRE frame range from start to end.
 
 CAMERA TYPES (use exact names from the session's available cameras):
-- TV cameras (TV1, TV2, TV3): Wide broadcast angles, good for establishing shots
-- Chase/Far Chase/Rear Chase: Behind-car cameras, great for following action
-- Cockpit/Roll Bar: Driver's perspective, intense and immersive
-- Chopper/Blimp: Aerial views, excellent for showing the field
-- Nose/Gearbox/Gyro: Unique onboard angles
+- TV cameras (TV1, TV2, TV3): Wide broadcast angles, good for establishing shots and showing field spread
+- Rear Chase: Behind-car camera, great for following battles and showing the car ahead
+- Cockpit/Roll Bar: Driver's perspective, intense and immersive for key moments
+- Chopper/Blimp: Aerial views, excellent for showing pack racing and the overall field
+- Nose/Gearbox/Gyro: Unique onboard angles for variety
 
-DO NOT USE: Scenic, Pit Lane (these cameras don't show racing action)
+DO NOT USE: Scenic, Pit Lane, Pit Lane 2, Chase, Far Chase
 
 BROADCAST DIRECTING GUIDELINES:
 1. VARIETY: Mix camera types - never use the same camera twice in a row
 2. PACING: Switch cameras every 8-15 seconds on average
 3. RHYTHM: Wide shot -> Close action -> Wide shot
-4. Start with an establishing shot (TV, Blimp, or Chopper)
+4. REACT TO EVENTS: Use onboards (Cockpit, Roll Bar) for battles and overtakes
+5. SHOW BOTH SIDES: In a battle, show both the attacker and defender
+6. Start with an establishing shot (TV, Blimp, or Chopper)
+
+DRIVER FOCUS:
+For each camera action, specify which driver(s) to follow:
+- driverNumber: The primary driver to focus on (use their car number)
+- secondaryDriver: For battles/overtakes, the other driver involved
+- switchToSecondaryAtFrame: Frame number to switch focus to the secondary driver (for showing both sides of a battle)
+- focusType: ""battle"", ""overtake"", ""incident"", ""leader"", ""field"", or ""pack""
+
+DYNAMIC COVERAGE EXAMPLE:
+For a battle between #7 and #12, you might do:
+1. Frame 1000: TV1, driverNumber 7, focusType ""battle"" - wide shot of the battle
+2. Frame 1600: Rear Chase, driverNumber 7, secondaryDriver 12, switchToSecondaryAtFrame 1900, focusType ""battle"" - follow #7, then switch to #12 to show defense
+3. Frame 2200: Cockpit, driverNumber 12, focusType ""battle"" - defender's POV
 
 OUTPUT FORMAT:
 Respond with ONLY valid JSON (no markdown, no code blocks, no explanation):
-{""cameraActions"":[{""frame"":1000,""cameraName"":""TV1"",""reason"":""Opening wide shot""},{""frame"":1600,""cameraName"":""Chase"",""reason"":""Follow the action""}]}
+{""cameraActions"":[
+{""frame"":1000,""cameraName"":""TV1"",""driverNumber"":7,""focusType"":""leader"",""reason"":""Opening shot on leader""},
+{""frame"":1600,""cameraName"":""Rear Chase"",""driverNumber"":7,""secondaryDriver"":12,""switchToSecondaryAtFrame"":1900,""focusType"":""battle"",""reason"":""Battle for P3""}
+]}
 
-Each camera action needs: frame (integer), cameraName (string), reason (string).
+Each camera action needs: frame (integer), cameraName (string), driverNumber (integer), reason (string).
+Optional: focusType, secondaryDriver, switchToSecondaryAtFrame.
 Sort by frame number ascending. Spread actions across the ENTIRE replay duration.";
 
 		public static string BuildUserPrompt(RaceEventSummary summary)
@@ -113,28 +128,94 @@ Sort by frame number ascending. Spread actions across the ENTIRE replay duration
 			}
 			else
 			{
-				sb.AppendLine("TV1, TV2, TV3, Cockpit, Chase, Far Chase, Chopper, Blimp");
+				sb.AppendLine("TV1, TV2, TV3, Cockpit, Rear Chase, Chopper, Blimp");
 			}
 			sb.AppendLine();
 
-			// Events for context
-			if (summary.Events != null && summary.Events.Count > 0)
+			// Drivers in the session
+			if (summary.Drivers != null && summary.Drivers.Count > 0)
 			{
-				sb.AppendLine("=== KEY MOMENTS (adjust cameras around these frames) ===");
-				var sortedEvents = summary.Events.OrderBy(e => e.Frame).Take(20);
-				foreach (var evt in sortedEvents)
+				sb.AppendLine("=== DRIVERS (use car numbers for driverNumber field) ===");
+				var topDrivers = summary.Drivers.OrderBy(d => d.EndPosition).Take(15);
+				foreach (var driver in topDrivers)
 				{
-					sb.AppendLine($"Frame {evt.Frame}: {evt.Description}");
+					sb.AppendLine($"#{driver.NumberRaw} {driver.TeamName} - P{driver.EndPosition}");
 				}
 				sb.AppendLine();
 			}
 
+			// Detailed events grouped by type
+			if (summary.Events != null && summary.Events.Count > 0)
+			{
+				// Battles - ongoing close racing
+				var battles = summary.Events
+					.Where(e => e.EventType == RaceEventType.Battle)
+					.OrderByDescending(e => e.ImportanceScore)
+					.ThenBy(e => e.Frame)
+					.Take(15)
+					.ToList();
+
+				if (battles.Any())
+				{
+					sb.AppendLine("=== BATTLES (close racing - show BOTH drivers!) ===");
+					foreach (var evt in battles)
+					{
+						int durationSec = evt.DurationFrames / fps;
+						sb.AppendLine($"Frame {evt.Frame} ({durationSec}s): #{evt.PrimaryDriverNumber} vs #{evt.SecondaryDriverNumber} for P{evt.Position} [importance: {evt.ImportanceScore}/10]");
+					}
+					sb.AppendLine();
+				}
+
+				// Overtakes - position changes
+				var overtakes = summary.Events
+					.Where(e => e.EventType == RaceEventType.Overtake)
+					.OrderByDescending(e => e.ImportanceScore)
+					.ThenBy(e => e.Frame)
+					.Take(15)
+					.ToList();
+
+				if (overtakes.Any())
+				{
+					sb.AppendLine("=== OVERTAKES (show the pass and reaction!) ===");
+					foreach (var evt in overtakes)
+					{
+						string passed = evt.SecondaryDriverNumber.HasValue ? $"passes #{evt.SecondaryDriverNumber}" : "gains position";
+						sb.AppendLine($"Frame {evt.Frame}: #{evt.PrimaryDriverNumber} {passed} for P{evt.Position} [importance: {evt.ImportanceScore}/10]");
+					}
+					sb.AppendLine();
+				}
+
+				// Incidents - off-track, spins, contact
+				var incidents = summary.Events
+					.Where(e => e.EventType == RaceEventType.Incident)
+					.OrderByDescending(e => e.ImportanceScore)
+					.ThenBy(e => e.Frame)
+					.Take(10)
+					.ToList();
+
+				if (incidents.Any())
+				{
+					sb.AppendLine("=== INCIDENTS (dramatic moments!) ===");
+					foreach (var evt in incidents)
+					{
+						sb.AppendLine($"Frame {evt.Frame}: #{evt.PrimaryDriverNumber} - {evt.Description} [importance: {evt.ImportanceScore}/10]");
+					}
+					sb.AppendLine();
+				}
+			}
+
 			// Final instructions
 			sb.AppendLine("=== YOUR TASK ===");
-			sb.AppendLine($"Create exactly {targetCuts} camera switches spread across the ENTIRE replay.");
-			sb.AppendLine($"First camera switch MUST be at frame {summary.StartFrame}.");
-			sb.AppendLine($"Last camera switch should be near frame {summary.EndFrame - (framesPerCut / 2)}.");
-			sb.AppendLine("Use a VARIETY of different cameras - never repeat the same camera twice in a row.");
+			sb.AppendLine($"Create exactly {targetCuts} camera actions spread across the ENTIRE replay.");
+			sb.AppendLine($"First camera action MUST be at frame {summary.StartFrame}.");
+			sb.AppendLine($"Last camera action should be near frame {summary.EndFrame - (framesPerCut / 2)}.");
+			sb.AppendLine();
+			sb.AppendLine("IMPORTANT:");
+			sb.AppendLine("1. Specify driverNumber for EVERY camera action (use car numbers from driver list)");
+			sb.AppendLine("2. For battles: use secondaryDriver and switchToSecondaryAtFrame to show both cars");
+			sb.AppendLine("3. For overtakes: start on attacker, switch to defender's reaction");
+			sb.AppendLine("4. Use focusType: battle, overtake, incident, leader, field, or pack");
+			sb.AppendLine("5. Use a VARIETY of different cameras - never repeat the same camera twice in a row");
 			sb.AppendLine();
 			sb.AppendLine("Respond with ONLY the JSON object, no other text.");
 
