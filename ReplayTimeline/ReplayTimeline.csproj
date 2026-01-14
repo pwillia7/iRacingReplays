@@ -161,6 +161,14 @@
       <DependentUpon>AIDirectorSettingsWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="View\DriverOverlayWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="View\DriverOverlayWindow.xaml.cs">
+      <DependentUpon>DriverOverlayWindow.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Page Include="View\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

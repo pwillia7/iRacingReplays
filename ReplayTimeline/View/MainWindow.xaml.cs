@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.ComponentModel;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -8,16 +9,62 @@ namespace iRacingReplayDirector
 	public partial class MainWindow : Window
 	{
 		ReplayDirectorVM _vm;
+		private DriverOverlayWindow _driverOverlay;
 
 		public MainWindow()
 		{
 			InitializeComponent();
 
 			_vm = this.DataContext as ReplayDirectorVM;
+
+			// Subscribe to property changes to manage driver overlay
+			_vm.PropertyChanged += ViewModel_PropertyChanged;
+		}
+
+		private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+		{
+			if (e.PropertyName == "PlaybackEnabled")
+			{
+				if (_vm.PlaybackEnabled)
+				{
+					ShowDriverOverlay();
+				}
+				else
+				{
+					HideDriverOverlay();
+				}
+			}
+		}
+
+		private void ShowDriverOverlay()
+		{
+			if (_driverOverlay == null)
+			{
+				_driverOverlay = new DriverOverlayWindow(_vm);
+			}
+			_driverOverlay.Show();
+		}
+
+		private void HideDriverOverlay()
+		{
+			if (_driverOverlay != null)
+			{
+				_driverOverlay.Hide();
+			}
 		}
 
 		private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
 		{
+			// Clean up driver overlay
+			if (_driverOverlay != null)
+			{
+				_driverOverlay.Close();
+				_driverOverlay = null;
+			}
+
+			// Unsubscribe from events
+			_vm.PropertyChanged -= ViewModel_PropertyChanged;
+
 			_vm.ApplicationClosing(this.RenderSize);
 		}
 
