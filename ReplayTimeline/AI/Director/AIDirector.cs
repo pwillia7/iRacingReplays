@@ -469,6 +469,9 @@ namespace iRacingReplayDirector.AI.Director
 			return summary;
 		}
 
+		// Maximum segment duration in frames (10 minutes at 60fps = 36000 frames)
+		private const int MaxSegmentFrames = 36000;
+
 		public async Task<CameraPlan> GenerateCameraPlanAsync(CancellationToken cancellationToken = default)
 		{
 			if (LastScanResult == null)
@@ -486,8 +489,19 @@ namespace iRacingReplayDirector.AI.Director
 					throw new InvalidOperationException($"{provider.Name} is not configured. Please check settings.");
 				}
 
-				var summary = BuildEventSummary();
-				GeneratedPlan = await provider.GenerateCameraPlanAsync(summary, cancellationToken);
+				var fullSummary = BuildEventSummary();
+				int totalFrames = fullSummary.EndFrame - fullSummary.StartFrame;
+
+				// Check if we need to chunk the replay
+				if (totalFrames > MaxSegmentFrames)
+				{
+					GeneratedPlan = await GenerateChunkedPlanAsync(provider, fullSummary, cancellationToken);
+				}
+				else
+				{
+					// Short replay - generate in one call
+					GeneratedPlan = await provider.GenerateCameraPlanAsync(fullSummary, cancellationToken);
+				}
 
 				StatusMessage = $"Plan generated: {GeneratedPlan.CameraActions.Count} camera actions";
 				State = AIDirectorState.Idle;
@@ -500,6 +514,99 @@ namespace iRacingReplayDirector.AI.Director
 				State = AIDirectorState.Error;
 				throw;
 			}
+		}
+
+		private async Task<CameraPlan> GenerateChunkedPlanAsync(ILLMProvider provider, RaceEventSummary fullSummary, CancellationToken cancellationToken)
+		{
+			var combinedPlan = new CameraPlan
+			{
+				GeneratedBy = $"{provider.Name} ({provider.ModelName})",
+				GeneratedAt = DateTime.Now,
+				TotalDurationFrames = fullSummary.TotalFrames
+			};
+
+			int totalFrames = fullSummary.EndFrame - fullSummary.StartFrame;
+			int numSegments = (int)Math.Ceiling(totalFrames / (double)MaxSegmentFrames);
+
+			StatusMessage = $"Generating camera plan in {numSegments} segments...";
+
+			for (int i = 0; i < numSegments; i++)
+			{
+				if (cancellationToken.IsCancellationRequested)
+					break;
+
+				int segmentStart = fullSummary.StartFrame + (i * MaxSegmentFrames);
+				int segmentEnd = Math.Min(segmentStart + MaxSegmentFrames, fullSummary.EndFrame);
+
+				StatusMessage = $"Generating segment {i + 1} of {numSegments}...";
+
+				// Create a summary for just this segment
+				var segmentSummary = CreateSegmentSummary(fullSummary, segmentStart, segmentEnd);
+
+				try
+				{
+					var segmentPlan = await provider.GenerateCameraPlanAsync(segmentSummary, cancellationToken);
+
+					if (segmentPlan?.CameraActions != null)
+					{
+						// Add all actions from this segment to the combined plan
+						foreach (var action in segmentPlan.CameraActions)
+						{
+							// Ensure the action frame is within the segment bounds
+							if (action.Frame >= segmentStart && action.Frame <= segmentEnd)
+							{
+								combinedPlan.CameraActions.Add(action);
+							}
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					// Log but continue with other segments
+					System.Diagnostics.Debug.WriteLine($"Segment {i + 1} generation failed: {ex.Message}");
+
+					// If we have no actions yet and first segment failed, rethrow
+					if (combinedPlan.CameraActions.Count == 0 && i == 0)
+						throw;
+				}
+
+				// Small delay between segments to avoid rate limiting
+				if (i < numSegments - 1)
+				{
+					await Task.Delay(500, cancellationToken);
+				}
+			}
+
+			// Sort all actions by frame
+			combinedPlan.CameraActions = combinedPlan.CameraActions.OrderBy(a => a.Frame).ToList();
+
+			return combinedPlan;
+		}
+
+		private RaceEventSummary CreateSegmentSummary(RaceEventSummary fullSummary, int segmentStart, int segmentEnd)
+		{
+			int segmentFrames = segmentEnd - segmentStart;
+			double segmentDurationMinutes = (segmentFrames / 60.0) / 60.0; // frames / fps / 60
+
+			var segmentSummary = new RaceEventSummary
+			{
+				TrackName = fullSummary.TrackName,
+				SessionType = fullSummary.SessionType,
+				StartFrame = segmentStart,
+				EndFrame = segmentEnd,
+				DurationMinutes = segmentDurationMinutes,
+				FrameRate = fullSummary.FrameRate,
+				Drivers = fullSummary.Drivers,
+				AvailableCameras = fullSummary.AvailableCameras
+			};
+
+			// Filter events to only those within this segment (with a small buffer for context)
+			int bufferFrames = 600; // 10 seconds buffer
+			segmentSummary.Events = fullSummary.Events
+				.Where(e => e.Frame >= (segmentStart - bufferFrames) && e.Frame <= (segmentEnd + bufferFrames))
+				.ToList();
+
+			return segmentSummary;
 		}
 
 		public int ApplyPlanToNodeCollection(bool clearExisting = true)
@@ -539,7 +646,7 @@ namespace iRacingReplayDirector.AI.Director
 					}
 
 					// Excluded cameras that don't show good racing action
-					var excludedCameras = new[] { "Scenic", "Pit Lane", "Chase", "Far Chase" };
+					var excludedCameras = new[] { "Scenic", "Pit Lane", "Pit Lane 2", "Chase", "Far Chase" };
 
 					// Find camera by name (excluding restricted cameras)
 					var camera = _viewModel.Cameras.FirstOrDefault(c =>

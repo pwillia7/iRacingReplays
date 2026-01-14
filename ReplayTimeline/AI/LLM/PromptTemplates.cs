@@ -105,7 +105,7 @@ Sort by frame number ascending. Spread actions across the ENTIRE replay duration
 			sb.AppendLine("=== AVAILABLE CAMERAS (use these exact names) ===");
 			if (summary.AvailableCameras != null && summary.AvailableCameras.Count > 0)
 			{
-				var excludedCameras = new[] { "Scenic", "Pit Lane", "Chase", "Far Chase" };
+				var excludedCameras = new[] { "Scenic", "Pit Lane", "Pit Lane 2", "Chase", "Far Chase" };
 				var validCameras = summary.AvailableCameras
 					.Where(c => !excludedCameras.Any(ex => c.GroupName.Equals(ex, System.StringComparison.OrdinalIgnoreCase)))
 					.Select(c => c.GroupName);

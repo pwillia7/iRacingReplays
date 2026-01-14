@@ -16,7 +16,7 @@ namespace iRacingReplayDirector.AI.LLM
 		static LLMProviderBase()
 		{
 			SharedHttpClient = new HttpClient();
-			SharedHttpClient.Timeout = TimeSpan.FromSeconds(60);
+			SharedHttpClient.Timeout = TimeSpan.FromSeconds(180); // Increased for long race segments
 		}
 
 		public abstract string Name { get; }
@@ -48,7 +48,7 @@ namespace iRacingReplayDirector.AI.LLM
 					new { role = "user", content = userPrompt }
 				},
 				temperature = 0.7,
-				max_tokens = 4096
+				max_tokens = 8192 // Increased to handle more camera actions for longer segments
 			};
 
 			string jsonBody = JsonConvert.SerializeObject(requestBody);
