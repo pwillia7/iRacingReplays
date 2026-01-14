@@ -118,16 +118,27 @@ Required fields: frame (int), cameraName (string), reason (string)";
 				segmentNum++;
 			}
 
+			// Ensure minimum camera count based on total duration (at least 1 per 10 seconds)
+			int minimumCameras = Math.Max(5, (int)(durationSeconds / 10));
+			if (minimumCameras > 80) minimumCameras = 80; // Cap at 80 for very long replays
+
+			if (totalCamerasNeeded < minimumCameras)
+			{
+				totalCamerasNeeded = minimumCameras;
+			}
+
 			sb.AppendLine("=== YOUR TASK ===");
 			sb.AppendLine($"Create approximately {totalCamerasNeeded} camera switches total.");
 			sb.AppendLine($"First camera MUST be at frame {summary.StartFrame}.");
+			sb.AppendLine($"Spread cameras evenly - approximately one every {(int)(durationSeconds / totalCamerasNeeded)} seconds.");
 			sb.AppendLine();
 			sb.AppendLine("CRITICAL RULES:");
-			sb.AppendLine("1. Follow the camera count for each segment");
+			sb.AppendLine("1. Create the requested number of camera switches");
 			sb.AppendLine("2. Use action cameras (Rear Chase, Cockpit) during events");
 			sb.AppendLine("3. Use wide cameras (TV, Chopper) during gaps and to establish");
 			sb.AppendLine("4. Build drama: wide shot -> close action -> intense POV");
 			sb.AppendLine("5. NEVER use the same camera twice in a row");
+			sb.AppendLine("6. Cover the ENTIRE replay from start to end frame");
 			sb.AppendLine();
 			sb.AppendLine("Respond with ONLY the JSON object, no other text.");
 
@@ -229,59 +240,42 @@ Required fields: frame (int), cameraName (string), reason (string)";
 			};
 
 			// Calculate cameras needed based on event type and duration
+			// Base rate: 1 camera per 8 seconds for events (more frequent than gaps)
+			int baseCameras = Math.Max(1, (int)(durationSec / 8));
+
 			switch (evt.EventType)
 			{
 				case RaceEventType.Battle:
-					if (durationSec < 10)
-					{
-						segment.RecommendedCameras = 1;
-						segment.CameraGuidance = "Use Rear Chase for close battle action";
-					}
-					else if (durationSec < 20)
-					{
-						segment.RecommendedCameras = 2;
-						segment.CameraGuidance = "Start with TV (establish), then Rear Chase (action)";
-					}
-					else
-					{
-						segment.RecommendedCameras = 3;
-						segment.CameraGuidance = "TV (establish) -> Rear Chase (action) -> Cockpit (intense) or back to Rear Chase";
-					}
+					// Battles get more camera variety
+					segment.RecommendedCameras = Math.Max(baseCameras, durationSec < 10 ? 1 : durationSec < 20 ? 2 : 3);
+					segment.CameraGuidance = durationSec < 10
+						? "Use Rear Chase for close battle action"
+						: durationSec < 20
+							? "Start with TV (establish), then Rear Chase (action)"
+							: "TV (establish) -> Rear Chase (action) -> Cockpit (intense), repeat pattern";
 					break;
 
 				case RaceEventType.Overtake:
-					if (durationSec < 8)
-					{
-						segment.RecommendedCameras = 1;
-						segment.CameraGuidance = "Use Rear Chase to capture the pass";
-					}
-					else
-					{
-						segment.RecommendedCameras = 2;
-						segment.CameraGuidance = "Rear Chase (during pass) -> Cockpit (reaction shot 2-3s after)";
-					}
+					segment.RecommendedCameras = Math.Max(baseCameras, durationSec < 8 ? 1 : 2);
+					segment.CameraGuidance = durationSec < 8
+						? "Use Rear Chase to capture the pass"
+						: "Rear Chase (during pass) -> Cockpit (reaction shot 2-3s after)";
 					break;
 
 				case RaceEventType.Incident:
-					if (durationSec < 8)
-					{
-						segment.RecommendedCameras = 1;
-						segment.CameraGuidance = "Use TV or Chopper for context of incident";
-					}
-					else
-					{
-						segment.RecommendedCameras = 2;
-						segment.CameraGuidance = "TV/Chopper (context, what happened) -> Cockpit (driver view)";
-					}
+					segment.RecommendedCameras = Math.Max(baseCameras, durationSec < 8 ? 1 : 2);
+					segment.CameraGuidance = durationSec < 8
+						? "Use TV or Chopper for context of incident"
+						: "TV/Chopper (context, what happened) -> Cockpit (driver view)";
 					break;
 
 				case RaceEventType.PitStop:
-					segment.RecommendedCameras = 1;
+					segment.RecommendedCameras = Math.Max(1, baseCameras);
 					segment.CameraGuidance = "Use TV for pit lane action";
 					break;
 
 				default:
-					segment.RecommendedCameras = Math.Max(1, (int)(durationSec / 10));
+					segment.RecommendedCameras = baseCameras;
 					segment.CameraGuidance = "Use TV or Chopper for general coverage";
 					break;
 			}
@@ -291,11 +285,18 @@ Required fields: frame (int), cameraName (string), reason (string)";
 
 		private static int CalculateGapCameras(double durationSec)
 		{
-			// For gaps, use fewer cameras (longer holds)
-			// One camera every 12-15 seconds during gaps
-			if (durationSec < 8) return 1;
+			// For gaps, use slightly fewer cameras than events (longer holds)
+			// One camera every 10-12 seconds during gaps
+			if (durationSec < 10) return 1;
 			if (durationSec < 20) return 2;
-			return Math.Max(2, (int)(durationSec / 12));
+			return Math.Max(2, (int)(durationSec / 10));
+		}
+
+		private static int CalculateEventCameras(double durationSec)
+		{
+			// For events, more frequent camera changes (every 8 seconds)
+			if (durationSec < 8) return 1;
+			return Math.Max(1, (int)(durationSec / 8));
 		}
 
 		private static List<BroadcastSegment> MergeOverlappingSegments(List<BroadcastSegment> segments)
@@ -326,7 +327,7 @@ Required fields: frame (int), cameraName (string), reason (string)";
 						current.Description = next.Description;
 					}
 
-					// Recalculate cameras for merged segment
+					// Recalculate cameras based on NEW merged duration
 					if (current.IsGap)
 					{
 						current.RecommendedCameras = CalculateGapCameras(current.DurationSeconds);
@@ -334,10 +335,11 @@ Required fields: frame (int), cameraName (string), reason (string)";
 					}
 					else
 					{
-						// Recalculate based on new duration
-						current.RecommendedCameras = Math.Max(current.RecommendedCameras, next.RecommendedCameras);
-						if (current.DurationSeconds > 20 && current.RecommendedCameras < 3)
-							current.RecommendedCameras = 3;
+						// For events, recalculate based on merged duration
+						current.RecommendedCameras = CalculateEventCameras(current.DurationSeconds);
+						current.CameraGuidance = current.DurationSeconds < 20
+							? "Vary between TV, Rear Chase, and Cockpit"
+							: "TV (establish) -> Rear Chase (action) -> Cockpit (intense), repeat pattern as needed";
 					}
 				}
 				else
