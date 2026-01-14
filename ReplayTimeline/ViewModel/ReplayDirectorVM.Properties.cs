@@ -56,11 +56,32 @@ namespace iRacingReplayDirector
 					_currentNode = value;
 					_currentNode.ApplyNode();
 					OnPropertyChanged("CurrentNode");
+
+					// Update OverlayDriver when a CamChangeNode is applied
+					if (_currentNode is CamChangeNode camChangeNode)
+					{
+						OverlayDriver = camChangeNode.Driver;
+					}
 				}
 			}
 		}
 
 		private Node _lastAppliedNode;
+
+		// Driver shown in the overlay - based on our applied camera nodes, not iRacing telemetry
+		private Driver _overlayDriver;
+		public Driver OverlayDriver
+		{
+			get { return _overlayDriver; }
+			set
+			{
+				if (_overlayDriver != value)
+				{
+					_overlayDriver = value;
+					OnPropertyChanged("OverlayDriver");
+				}
+			}
+		}
 
 		private Driver _currentDriver;
 		public Driver CurrentDriver
@@ -297,6 +318,13 @@ namespace iRacingReplayDirector
 		{
 			get { return _showInactiveDrivers; }
 			set { _showInactiveDrivers = value; Properties.Settings.Default.ShowInactiveDrivers = value; OnPropertyChanged("ShowInactiveDrivers"); }
+		}
+
+		private bool _showDriverOverlay;
+		public bool ShowDriverOverlay
+		{
+			get { return _showDriverOverlay; }
+			set { _showDriverOverlay = value; Properties.Settings.Default.ShowDriverOverlay = value; OnPropertyChanged("ShowDriverOverlay"); }
 		}
 
 

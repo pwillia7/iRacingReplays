@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel;
 using System.Windows;
 
@@ -35,7 +34,8 @@ namespace iRacingReplayDirector
 
 		private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
-			if (e.PropertyName == "CurrentDriver")
+			// Update when OverlayDriver changes (based on our applied camera nodes)
+			if (e.PropertyName == "OverlayDriver")
 			{
 				UpdateDriverName();
 			}
@@ -43,15 +43,16 @@ namespace iRacingReplayDirector
 
 		private void UpdateDriverName()
 		{
-			if (_viewModel.CurrentDriver != null)
+			// Use OverlayDriver which is set when our CamChangeNodes are applied
+			if (_viewModel.OverlayDriver != null)
 			{
 				// Show driver name with car number
-				string displayText = $"#{_viewModel.CurrentDriver.Number} {_viewModel.CurrentDriver.TeamName}";
+				string displayText = $"#{_viewModel.OverlayDriver.Number} {_viewModel.OverlayDriver.TeamName}";
 				DriverNameText.Text = displayText;
 			}
 			else
 			{
-				DriverNameText.Text = "No Driver";
+				DriverNameText.Text = "";
 			}
 		}
 

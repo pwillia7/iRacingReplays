@@ -166,5 +166,17 @@ namespace iRacingReplayDirector.Properties {
                 this["ShowInactiveDrivers"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowDriverOverlay {
+            get {
+                return ((bool)(this["ShowDriverOverlay"]));
+            }
+            set {
+                this["ShowDriverOverlay"] = value;
+            }
+        }
     }
 }

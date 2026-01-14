@@ -53,6 +53,8 @@
 					<MenuItem Header="Visual Timeline" IsCheckable="True" IsChecked="{Binding ShowVisualTimeline}" />
 					<MenuItem Header="Recording Controls" IsCheckable="True" IsChecked="{Binding ShowRecordingControls}" />
 					<MenuItem Header="Session/Lap Controls" IsCheckable="True" IsChecked="{Binding ShowSessionLapSkipControls}" />
+					<Separator />
+					<MenuItem Header="Driver Name Overlay" IsCheckable="True" IsChecked="{Binding ShowDriverOverlay}" />
 				</MenuItem>
 
 				<MenuItem Header="Help">

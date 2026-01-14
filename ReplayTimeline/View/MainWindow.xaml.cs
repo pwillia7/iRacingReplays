@@ -34,10 +34,29 @@ namespace iRacingReplayDirector
 					HideDriverOverlay();
 				}
 			}
+			else if (e.PropertyName == "ShowDriverOverlay")
+			{
+				// Handle setting change while playing
+				if (_vm.PlaybackEnabled)
+				{
+					if (_vm.ShowDriverOverlay)
+					{
+						ShowDriverOverlay();
+					}
+					else
+					{
+						HideDriverOverlay();
+					}
+				}
+			}
 		}
 
 		private void ShowDriverOverlay()
 		{
+			// Only show if the setting is enabled
+			if (!_vm.ShowDriverOverlay)
+				return;
+
 			if (_driverOverlay == null)
 			{
 				_driverOverlay = new DriverOverlayWindow(_vm);
