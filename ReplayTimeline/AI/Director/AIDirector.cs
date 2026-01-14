@@ -539,7 +539,7 @@ namespace iRacingReplayDirector.AI.Director
 					}
 
 					// Excluded cameras that don't show good racing action
-					var excludedCameras = new[] { "Scenic", "Pit Lane", "Rear Chase" };
+					var excludedCameras = new[] { "Scenic", "Pit Lane", "Chase", "Far Chase" };
 
 					// Find camera by name (excluding restricted cameras)
 					var camera = _viewModel.Cameras.FirstOrDefault(c =>
