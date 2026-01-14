@@ -634,64 +634,26 @@ namespace iRacingReplayDirector.AI.Director
 
 				foreach (var action in GeneratedPlan.CameraActions.OrderBy(a => a.Frame))
 				{
-					// Find camera first (same for all nodes from this action)
+					// Find camera from LLM's choice (LLM only chooses cameras, we choose drivers)
 					var camera = FindCamera(action.CameraName, excludedCameras);
 					if (camera == null) continue;
 
-					// Determine the primary driver
-					Driver primaryDriver = null;
+					// ALWAYS use our event-based driver selection
+					// The LLM only provides camera choices - we determine the best driver
+					// based on what's happening at each frame using our event detection
+					Driver primaryDriver = FindMostExcitingDriver(action.Frame);
 
-					// First, try to use the AI's specified driver number
-					if (action.DriverNumber > 0)
-					{
-						primaryDriver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == action.DriverNumber);
-					}
-
-					// If AI didn't specify or driver not found, use our event-based selection
-					if (primaryDriver == null)
-					{
-						primaryDriver = FindMostExcitingDriver(action.Frame);
-					}
-
-					// Ultimate fallback
+					// Ultimate fallback if no events near this frame
 					if (primaryDriver == null)
 					{
 						primaryDriver = _viewModel.Drivers.FirstOrDefault(d => d.TrackSurface != TrackSurfaces.NotInWorld && d.NumberRaw != 0);
 						if (primaryDriver == null) continue;
 					}
 
-					// Create the primary camera node
+					// Create the camera node with our event-based driver selection
 					var node = new CamChangeNode(true, action.Frame, primaryDriver, camera);
 					_viewModel.NodeCollection.AddNode(node);
 					nodesCreated++;
-
-					// Handle driver sequence (multiple drivers in one action)
-					if (action.DriverSequence != null && action.DriverSequence.Count > 0)
-					{
-						foreach (var driverFocus in action.DriverSequence)
-						{
-							if (driverFocus.AtFrame <= action.Frame) continue; // Skip if before or at primary frame
-
-							var sequenceDriver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == driverFocus.DriverNumber);
-							if (sequenceDriver != null)
-							{
-								var sequenceNode = new CamChangeNode(true, driverFocus.AtFrame, sequenceDriver, camera);
-								_viewModel.NodeCollection.AddNode(sequenceNode);
-								nodesCreated++;
-							}
-						}
-					}
-					// Handle simple secondary driver switch
-					else if (action.SecondaryDriverNumber.HasValue && action.SwitchToSecondaryAtFrame.HasValue)
-					{
-						var secondaryDriver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == action.SecondaryDriverNumber.Value);
-						if (secondaryDriver != null && action.SwitchToSecondaryAtFrame.Value > action.Frame)
-						{
-							var secondaryNode = new CamChangeNode(true, action.SwitchToSecondaryAtFrame.Value, secondaryDriver, camera);
-							_viewModel.NodeCollection.AddNode(secondaryNode);
-							nodesCreated++;
-						}
-					}
 				}
 
 				StatusMessage = $"Applied {nodesCreated} camera nodes";
