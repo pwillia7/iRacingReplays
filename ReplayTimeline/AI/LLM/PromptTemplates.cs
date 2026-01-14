@@ -14,40 +14,45 @@ YOUR JOB: Plan camera angles for each broadcast segment. The system automaticall
 
 FRAME NUMBERS: At 60fps: 1 second = 60 frames, 1 minute = 3600 frames.
 
-AVAILABLE CAMERAS:
-- TV1, TV2, TV3: Wide broadcast angles - establishing shots, showing gaps, field spread
-- Rear Chase: Behind the car - BEST for battles, overtakes, close racing action
-- Cockpit, Roll Bar: Driver POV - intense moments, key passes, incidents
-- Chopper, Blimp: Aerial views - pack racing, restarts, multiple cars
-- Nose, Gearbox, Gyro: Unique angles - use sparingly for variety
+CAMERA CATEGORIES (use ALL categories for variety):
+
+WIDE/ESTABLISHING:
+- TV1, TV2, TV3: Trackside broadcast cameras - great for showing gaps, field spread
+- Chopper, Blimp: Aerial views - pack racing, restarts, showing multiple cars
+
+CHASE/ACTION:
+- Rear Chase: Behind the car - excellent for battles, overtakes, close racing
+- Gearbox: Low rear angle - dramatic for acceleration, exits
+
+ONBOARD/POV:
+- Cockpit: Driver's view - intense moments, key passes
+- Roll Bar: Over driver's shoulder - good visibility of track ahead
+
+DYNAMIC/UNIQUE:
+- Nose: Front-facing - shows approaching corners, other cars ahead
+- Gyro: Stabilized onboard - smooth dramatic shots
+- LF Susp, RF Susp, LR Susp, RR Susp: Suspension cameras - low angle wheel views, great for curbs and close racing
 
 DO NOT USE: Scenic, Pit Lane, Pit Lane 2, Chase, Far Chase
 
-CAMERA FLOW PATTERNS (build dramatic tension):
+VARIETY IS KEY: Use cameras from ALL categories throughout the broadcast. Don't over-rely on just TV and Rear Chase.
 
-For BATTLES (close racing):
-  Short (<10s): Rear Chase only
-  Medium (10-20s): TV (establish) -> Rear Chase (action)
-  Long (>20s): TV -> Rear Chase -> Cockpit (intensity) -> Rear Chase
+CAMERA FLOW PATTERNS:
 
-For OVERTAKES:
-  Rear Chase (during pass) -> Cockpit (reaction shot, 2-3 seconds after)
-
-For INCIDENTS:
-  TV or Chopper (context, see what happened) -> Cockpit (driver perspective)
-
-For GAPS (no events):
-  Use TV or Chopper for wide field shots, show the racing environment
+For BATTLES: Wide (TV) -> Action (Rear Chase/Gearbox) -> POV (Cockpit/Roll Bar) -> Unique (Gyro/Suspension)
+For OVERTAKES: Action camera during pass -> POV for reaction -> back to action
+For INCIDENTS: Wide for context -> POV for driver perspective
+For GAPS: Mix of Wide and Dynamic cameras to keep visuals interesting
 
 PACING RULES:
 1. Each camera should last 5-12 seconds (300-720 frames)
 2. Never use the same camera twice in a row
-3. During events: switch cameras to build drama
-4. During gaps: use fewer cuts, let wide shots breathe
+3. Mix camera categories - don't use two Wide shots back-to-back
+4. Use Dynamic/Unique cameras (Gyro, Nose, Suspension) every 4-5 cuts for variety
 5. Transition from gap to event: cut to action camera as event begins
 
 OUTPUT FORMAT - Respond with ONLY valid JSON:
-{""cameraActions"":[{""frame"":1000,""cameraName"":""TV1"",""reason"":""Establish field before battle""},{""frame"":1400,""cameraName"":""Rear Chase"",""reason"":""Battle begins - close action""},{""frame"":1900,""cameraName"":""Cockpit"",""reason"":""Intense moment in battle""}]}
+{""cameraActions"":[{""frame"":1000,""cameraName"":""TV1"",""reason"":""Wide establishing shot""},{""frame"":1400,""cameraName"":""Rear Chase"",""reason"":""Battle action""},{""frame"":1900,""cameraName"":""Gyro"",""reason"":""Dynamic angle for variety""}]}
 
 Required fields: frame (int), cameraName (string), reason (string)";
 
@@ -80,7 +85,7 @@ Required fields: frame (int), cameraName (string), reason (string)";
 			}
 			else
 			{
-				sb.AppendLine("TV1, TV2, TV3, Cockpit, Rear Chase, Chopper, Blimp, Roll Bar");
+				sb.AppendLine("TV1, TV2, TV3, Cockpit, Rear Chase, Chopper, Blimp, Roll Bar, Gyro, Nose, Gearbox, LF Susp, RF Susp, LR Susp, RR Susp");
 			}
 			sb.AppendLine();
 
@@ -163,7 +168,7 @@ Required fields: frame (int), cameraName (string), reason (string)";
 					DurationSeconds = durationSec,
 					IsGap = true,
 					RecommendedCameras = cameras,
-					CameraGuidance = "Use TV and Chopper for wide field coverage"
+					CameraGuidance = "Mix all camera types: Wide (TV/Chopper/Blimp), Onboard (Cockpit/Roll Bar), Dynamic (Gyro/Nose/Gearbox/Suspension)"
 				});
 
 				return segments;
@@ -192,7 +197,9 @@ Required fields: frame (int), cameraName (string), reason (string)";
 						DurationSeconds = gapDuration,
 						IsGap = true,
 						RecommendedCameras = gapCameras,
-						CameraGuidance = "Use TV or Chopper for wide shots, establish the field"
+						CameraGuidance = gapCameras <= 2
+							? "Mix Wide (TV/Chopper) with unique angles (Gyro/Nose)"
+							: "Alternate Wide (TV/Chopper/Blimp) with Dynamic (Gyro/Nose/Suspension) cameras"
 					});
 				}
 
@@ -217,7 +224,9 @@ Required fields: frame (int), cameraName (string), reason (string)";
 					DurationSeconds = gapDuration,
 					IsGap = true,
 					RecommendedCameras = gapCameras,
-					CameraGuidance = "Use TV or Chopper for closing wide shots"
+					CameraGuidance = gapCameras <= 2
+						? "Mix Wide (TV/Chopper) with unique angles for closing"
+						: "Alternate Wide (TV/Blimp) with Dynamic (Gyro/Nose/Gearbox) for variety"
 				});
 			}
 
@@ -249,34 +258,34 @@ Required fields: frame (int), cameraName (string), reason (string)";
 					// Battles get more camera variety
 					segment.RecommendedCameras = Math.Max(baseCameras, durationSec < 10 ? 1 : durationSec < 20 ? 2 : 3);
 					segment.CameraGuidance = durationSec < 10
-						? "Use Rear Chase for close battle action"
+						? "Use Rear Chase or Gearbox for close action"
 						: durationSec < 20
-							? "Start with TV (establish), then Rear Chase (action)"
-							: "TV (establish) -> Rear Chase (action) -> Cockpit (intense), repeat pattern";
+							? "TV/Chopper (establish) -> Rear Chase/Gearbox (action)"
+							: "Wide -> Action (Rear Chase/Gearbox) -> POV (Cockpit/Roll Bar) -> Unique (Gyro/Suspension)";
 					break;
 
 				case RaceEventType.Overtake:
 					segment.RecommendedCameras = Math.Max(baseCameras, durationSec < 8 ? 1 : 2);
 					segment.CameraGuidance = durationSec < 8
-						? "Use Rear Chase to capture the pass"
-						: "Rear Chase (during pass) -> Cockpit (reaction shot 2-3s after)";
+						? "Use Rear Chase or Nose to capture the pass"
+						: "Rear Chase/Gearbox (during pass) -> Cockpit/Gyro (reaction)";
 					break;
 
 				case RaceEventType.Incident:
 					segment.RecommendedCameras = Math.Max(baseCameras, durationSec < 8 ? 1 : 2);
 					segment.CameraGuidance = durationSec < 8
-						? "Use TV or Chopper for context of incident"
-						: "TV/Chopper (context, what happened) -> Cockpit (driver view)";
+						? "Use TV, Chopper, or Suspension for dramatic angle"
+						: "Wide (TV/Chopper) for context -> POV (Cockpit/Roll Bar) for driver view";
 					break;
 
 				case RaceEventType.PitStop:
 					segment.RecommendedCameras = Math.Max(1, baseCameras);
-					segment.CameraGuidance = "Use TV for pit lane action";
+					segment.CameraGuidance = "Use TV or Gearbox for pit action";
 					break;
 
 				default:
 					segment.RecommendedCameras = baseCameras;
-					segment.CameraGuidance = "Use TV or Chopper for general coverage";
+					segment.CameraGuidance = "Mix Wide (TV/Chopper) with Unique angles (Gyro/Nose/Suspension)";
 					break;
 			}
 
@@ -331,15 +340,15 @@ Required fields: frame (int), cameraName (string), reason (string)";
 					if (current.IsGap)
 					{
 						current.RecommendedCameras = CalculateGapCameras(current.DurationSeconds);
-						current.CameraGuidance = "Use TV or Chopper for wide shots";
+						current.CameraGuidance = "Mix Wide (TV/Chopper/Blimp) with Dynamic (Gyro/Nose/Suspension)";
 					}
 					else
 					{
 						// For events, recalculate based on merged duration
 						current.RecommendedCameras = CalculateEventCameras(current.DurationSeconds);
 						current.CameraGuidance = current.DurationSeconds < 20
-							? "Vary between TV, Rear Chase, and Cockpit"
-							: "TV (establish) -> Rear Chase (action) -> Cockpit (intense), repeat pattern as needed";
+							? "Vary: Wide (TV) -> Action (Rear Chase/Gearbox) -> POV (Cockpit/Gyro)"
+							: "Full variety: Wide -> Action -> POV -> Unique (Nose/Suspension), repeat pattern";
 					}
 				}
 				else
