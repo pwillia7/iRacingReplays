@@ -48,7 +48,7 @@ namespace iRacingReplayDirector.AI.LLM
 					new { role = "user", content = userPrompt }
 				},
 				temperature = 0.7,
-				max_tokens = 8192 // Increased to handle more camera actions for longer segments
+				max_tokens = 4096 // Safe limit for most models
 			};
 
 			string jsonBody = JsonConvert.SerializeObject(requestBody);
@@ -65,9 +65,28 @@ namespace iRacingReplayDirector.AI.LLM
 				}
 
 				var response = await SharedHttpClient.SendAsync(request, cancellationToken);
-				response.EnsureSuccessStatusCode();
 
+				// Read response body for error details
 				string responseJson = await response.Content.ReadAsStringAsync();
+
+				if (!response.IsSuccessStatusCode)
+				{
+					// Try to extract error message from response
+					string errorMessage = $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}";
+					try
+					{
+						var errorObj = JObject.Parse(responseJson);
+						var apiError = errorObj["error"]?["message"]?.ToString();
+						if (!string.IsNullOrEmpty(apiError))
+						{
+							errorMessage = apiError;
+						}
+					}
+					catch { }
+
+					throw new HttpRequestException(errorMessage);
+				}
+
 				return ParseResponse(responseJson, summary);
 			}
 		}
