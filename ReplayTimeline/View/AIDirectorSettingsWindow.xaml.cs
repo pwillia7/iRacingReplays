@@ -51,6 +51,18 @@ namespace iRacingReplayDirector
 			DetectOvertakesCheckBox.IsChecked = _aiDirector.Settings.DetectOvertakes;
 			DetectBattlesCheckBox.IsChecked = _aiDirector.Settings.DetectBattles;
 			ScanIntervalBox.Text = _aiDirector.Settings.ScanIntervalFrames.ToString();
+
+			// Load driver selection weights
+			IncidentWeightSlider.Value = _aiDirector.Settings.IncidentWeight;
+			OvertakeWeightSlider.Value = _aiDirector.Settings.OvertakeWeight;
+			BattleWeightSlider.Value = _aiDirector.Settings.BattleWeight;
+			MomentumWeightSlider.Value = _aiDirector.Settings.MomentumWeight;
+			PackWeightSlider.Value = _aiDirector.Settings.PackWeight;
+			FreshActionWeightSlider.Value = _aiDirector.Settings.FreshActionWeight;
+			PositionWeightSlider.Value = _aiDirector.Settings.PositionWeight;
+			VarietyPenaltySlider.Value = _aiDirector.Settings.VarietyPenalty;
+			VarietyDampeningSlider.Value = _aiDirector.Settings.VarietyDampening;
+			MinCutsSlider.Value = _aiDirector.Settings.MinCutsPerMinute;
 		}
 
 		private void SaveSettings()
@@ -77,6 +89,18 @@ namespace iRacingReplayDirector
 			{
 				_aiDirector.Settings.ScanIntervalFrames = scanInterval;
 			}
+
+			// Save driver selection weights
+			_aiDirector.Settings.IncidentWeight = (int)IncidentWeightSlider.Value;
+			_aiDirector.Settings.OvertakeWeight = (int)OvertakeWeightSlider.Value;
+			_aiDirector.Settings.BattleWeight = (int)BattleWeightSlider.Value;
+			_aiDirector.Settings.MomentumWeight = (int)MomentumWeightSlider.Value;
+			_aiDirector.Settings.PackWeight = (int)PackWeightSlider.Value;
+			_aiDirector.Settings.FreshActionWeight = (int)FreshActionWeightSlider.Value;
+			_aiDirector.Settings.PositionWeight = (int)PositionWeightSlider.Value;
+			_aiDirector.Settings.VarietyPenalty = (int)VarietyPenaltySlider.Value;
+			_aiDirector.Settings.VarietyDampening = (int)VarietyDampeningSlider.Value;
+			_aiDirector.Settings.MinCutsPerMinute = (int)MinCutsSlider.Value;
 		}
 
 		private void ProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -162,6 +186,21 @@ namespace iRacingReplayDirector
 		{
 			DialogResult = false;
 			Close();
+		}
+
+		private void ResetWeights_Click(object sender, RoutedEventArgs e)
+		{
+			// Reset to default values
+			IncidentWeightSlider.Value = 50;
+			OvertakeWeightSlider.Value = 40;
+			BattleWeightSlider.Value = 35;
+			MomentumWeightSlider.Value = 25;
+			PackWeightSlider.Value = 15;
+			FreshActionWeightSlider.Value = 15;
+			PositionWeightSlider.Value = 15;
+			VarietyPenaltySlider.Value = 60;
+			VarietyDampeningSlider.Value = 40;
+			MinCutsSlider.Value = 4;
 		}
 	}
 }

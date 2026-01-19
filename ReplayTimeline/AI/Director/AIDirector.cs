@@ -839,7 +839,9 @@ namespace iRacingReplayDirector.AI.Director
 				                    score.BattleBonus + score.PackBonus + score.FreshActionBonus;
 
 				// Calculate action level (0.0 to 1.0)
-				score.ActionLevel = Math.Min(1.0f, score.ActionScore / 100.0f);
+				// Use higher threshold (150) so variety remains important
+				// Only truly exceptional action (incident + momentum + pack) approaches 1.0
+				score.ActionLevel = Math.Min(1.0f, score.ActionScore / 150.0f);
 			}
 
 			// === PHASE 3: Apply position scoring (reduced during high action) ===
@@ -993,12 +995,15 @@ namespace iRacingReplayDirector.AI.Director
 
 		/// <summary>
 		/// Apply bonus to drivers currently in active battles (during battle duration).
-		/// Keeps camera on battles until they're resolved.
+		/// Uses Settings.BattleWeight to scale the bonus.
 		/// </summary>
 		private void ApplyActiveBattleBonus(int frame, Dictionary<int, DriverScore> driverScores)
 		{
 			if (LastScanResult?.Events == null)
 				return;
+
+			// Scale based on battle weight setting
+			float scale = Settings.BattleWeight / 35.0f;
 
 			var activeBattles = LastScanResult.Events
 				.Where(e => e.EventType == RaceEventType.Battle &&
@@ -1010,44 +1015,49 @@ namespace iRacingReplayDirector.AI.Director
 				// Calculate how far into the battle we are (0.0 to 1.0)
 				float battleProgress = (float)(frame - battle.Frame) / Math.Max(1, battle.DurationFrames);
 
-				// Bonus is higher in the middle/end of battle (climax moments)
-				int bonus;
+				// Base bonus - moderate so variety still applies
+				int baseBonus;
 				if (battleProgress > 0.7f) // Last 30% of battle - climax
-					bonus = 35;
+					baseBonus = 22;
 				else if (battleProgress > 0.4f) // Middle of battle
-					bonus = 30;
+					baseBonus = 18;
 				else // Early battle
-					bonus = 25;
+					baseBonus = 15;
 
-				// Higher position battles get extra bonus
+				// Small extra for top battles
 				if (battle.Position <= 3)
-					bonus += 10;
+					baseBonus += 5;
 				else if (battle.Position <= 5)
-					bonus += 5;
+					baseBonus += 3;
+
+				int bonus = (int)(baseBonus * scale);
 
 				// Apply to both drivers in the battle
 				if (driverScores.ContainsKey(battle.PrimaryDriverNumber))
 				{
 					driverScores[battle.PrimaryDriverNumber].BattleBonus += bonus;
 					driverScores[battle.PrimaryDriverNumber].Breakdown.Add(
-						$"Active battle for P{battle.Position}: +{bonus}");
+						$"Battle P{battle.Position}: +{bonus}");
 				}
 
 				if (battle.SecondaryDriverNumber.HasValue && driverScores.ContainsKey(battle.SecondaryDriverNumber.Value))
 				{
 					driverScores[battle.SecondaryDriverNumber.Value].BattleBonus += bonus;
 					driverScores[battle.SecondaryDriverNumber.Value].Breakdown.Add(
-						$"Active battle for P{battle.Position}: +{bonus}");
+						$"Battle P{battle.Position}: +{bonus}");
 				}
 			}
 		}
 
 		/// <summary>
 		/// Apply momentum bonus for drivers gaining multiple positions over recent frames.
-		/// Recognizes "drivers on a charge" who are making moves through the field.
+		/// Uses Settings.MomentumWeight to scale the bonus.
 		/// </summary>
 		private void ApplyMomentumBonus(int frame, Dictionary<int, DriverScore> driverScores)
 		{
+			// Scale based on MomentumWeight setting (default 25, max ~40)
+			float scale = Settings.MomentumWeight / 25.0f;
+
 			foreach (var kvp in driverScores)
 			{
 				int driverNum = kvp.Key;
@@ -1079,37 +1089,38 @@ namespace iRacingReplayDirector.AI.Director
 
 				if (positionsGained >= 2)
 				{
-					// Bonus scales with positions gained
-					// 2 positions: 15, 3: 25, 4: 32, 5+: 40
-					int bonus;
+					// Base bonus scales with positions gained
+					int baseBonus;
 					if (positionsGained >= 5)
-						bonus = 40;
+						baseBonus = 30;
 					else if (positionsGained >= 4)
-						bonus = 32;
+						baseBonus = 25;
 					else if (positionsGained >= 3)
-						bonus = 25;
+						baseBonus = 18;
 					else
-						bonus = 15;
+						baseBonus = 12;
 
-					// Extra bonus for gaining into top positions
+					// Extra for gaining into top positions
 					if (currentRecord.Position <= 3 && startRecord.Position > 3)
-						bonus += 10;
+						baseBonus += 8;
 					else if (currentRecord.Position <= 5 && startRecord.Position > 5)
-						bonus += 5;
+						baseBonus += 4;
 
+					int bonus = (int)(baseBonus * scale);
 					score.MomentumBonus = bonus;
-					score.Breakdown.Add($"Momentum (+{positionsGained} positions): +{bonus}");
+					score.Breakdown.Add($"Momentum (+{positionsGained}): +{bonus}");
 				}
 			}
 		}
 
 		/// <summary>
 		/// Apply bonus for drivers running in packs (multiple cars nearby).
-		/// Pack racing is more exciting than isolated drivers.
+		/// Uses Settings.PackWeight to scale the bonus.
 		/// </summary>
 		private void ApplyPackProximityBonus(Dictionary<int, DriverSnapshot> snapshots, Dictionary<int, DriverScore> driverScores)
 		{
 			const float PackThreshold = 0.03f; // 3% of lap distance = in pack
+			float scale = Settings.PackWeight / 15.0f;
 
 			foreach (var kvp in driverScores)
 			{
@@ -1139,17 +1150,18 @@ namespace iRacingReplayDirector.AI.Director
 
 				if (carsNearby >= 1)
 				{
-					// Bonus scales with pack size
-					int bonus;
+					// Base bonus scales with pack size
+					int baseBonus;
 					if (carsNearby >= 4)
-						bonus = 25; // Big pack
+						baseBonus = 20;
 					else if (carsNearby >= 3)
-						bonus = 20;
+						baseBonus = 15;
 					else if (carsNearby >= 2)
-						bonus = 15;
+						baseBonus = 10;
 					else
-						bonus = 10; // At least one car nearby
+						baseBonus = 6;
 
+					int bonus = (int)(baseBonus * scale);
 					score.PackBonus = bonus;
 					score.Breakdown.Add($"Pack ({carsNearby + 1} cars): +{bonus}");
 				}
@@ -1168,14 +1180,14 @@ namespace iRacingReplayDirector.AI.Director
 
 		/// <summary>
 		/// Apply bonus for recent position changes.
-		/// Fresh action is more interesting than stale positions.
+		/// Uses Settings.FreshActionWeight to scale the bonus.
 		/// </summary>
 		private void ApplyFreshActionBonus(int frame, Dictionary<int, DriverScore> driverScores)
 		{
 			if (LastScanResult?.Events == null)
 				return;
 
-			// Look at recent overtakes involving each driver
+			float scale = Settings.FreshActionWeight / 15.0f;
 			int recentWindow = 1200; // 20 seconds
 
 			var recentOvertakes = LastScanResult.Events
@@ -1187,37 +1199,40 @@ namespace iRacingReplayDirector.AI.Director
 			{
 				int frameSince = frame - overtake.Frame;
 
-				// Bonus decays over time
-				int bonus;
+				// Base bonus decays over time
+				int baseBonus;
 				if (frameSince <= 300) // Last 5 seconds
-					bonus = 20;
+					baseBonus = 15;
 				else if (frameSince <= 600) // Last 10 seconds
-					bonus = 15;
+					baseBonus = 10;
 				else if (frameSince <= 900) // Last 15 seconds
-					bonus = 10;
+					baseBonus = 6;
 				else
-					bonus = 5;
+					baseBonus = 3;
 
-				// Apply to both drivers involved
+				int bonus = (int)(baseBonus * scale);
+
+				// Apply to primary driver
 				if (driverScores.ContainsKey(overtake.PrimaryDriverNumber))
 				{
 					var score = driverScores[overtake.PrimaryDriverNumber];
-					if (bonus > score.FreshActionBonus) // Don't stack, take highest
+					if (bonus > score.FreshActionBonus)
 					{
 						score.FreshActionBonus = bonus;
-						score.Breakdown.Add($"Fresh overtake ({frameSince / 60}s ago): +{bonus}");
+						score.Breakdown.Add($"Fresh pass ({frameSince / 60}s): +{bonus}");
 					}
 				}
 
+				// Apply to secondary driver (got passed)
 				if (overtake.SecondaryDriverNumber.HasValue &&
 				    driverScores.ContainsKey(overtake.SecondaryDriverNumber.Value))
 				{
 					var score = driverScores[overtake.SecondaryDriverNumber.Value];
-					int secondaryBonus = (int)(bonus * 0.7f);
+					int secondaryBonus = (int)(bonus * 0.6f);
 					if (secondaryBonus > score.FreshActionBonus)
 					{
 						score.FreshActionBonus = secondaryBonus;
-						score.Breakdown.Add($"Fresh action (lost position): +{secondaryBonus}");
+						score.Breakdown.Add($"Got passed ({frameSince / 60}s): +{secondaryBonus}");
 					}
 				}
 			}
@@ -1225,17 +1240,18 @@ namespace iRacingReplayDirector.AI.Director
 
 		private int GetEventTypeScore(RaceEventType eventType)
 		{
+			// Use configurable weights from settings
 			switch (eventType)
 			{
 				case RaceEventType.Incident:
-					return 70; // Boosted - incidents must be shown
+					return Settings.IncidentWeight;
 				case RaceEventType.Battle:
-					return 45;
+					return Settings.BattleWeight;
 				case RaceEventType.Overtake:
-					return 50; // Boosted - overtakes are key
+					return Settings.OvertakeWeight;
 				case RaceEventType.RaceStart:
 				case RaceEventType.RaceFinish:
-					return 40;
+					return Settings.OvertakeWeight; // Use overtake weight for milestones
 				case RaceEventType.PitStop:
 					return 15;
 				default:
@@ -1245,22 +1261,43 @@ namespace iRacingReplayDirector.AI.Director
 
 		private int CalculatePositionScore(int position)
 		{
-			if (position == 1) return 15;
-			if (position == 2) return 12;
-			if (position == 3) return 10;
-			if (position <= 5) return 8;
-			if (position <= 10) return 5;
-			if (position <= 15) return 2;
-			return 1;
+			// Scale based on position weight setting (default 15)
+			float scale = Settings.PositionWeight / 15.0f;
+
+			int baseScore;
+			if (position == 1) baseScore = 15;
+			else if (position == 2) baseScore = 12;
+			else if (position == 3) baseScore = 10;
+			else if (position <= 5) baseScore = 8;
+			else if (position <= 10) baseScore = 5;
+			else if (position <= 15) baseScore = 2;
+			else baseScore = 1;
+
+			return (int)(baseScore * scale);
 		}
 
 		/// <summary>
-		/// Apply variety penalties with dampening based on action level.
-		/// KEY CHANGE: High action reduces variety penalty so we don't miss exciting moments.
+		/// Apply variety penalties with configurable dampening.
+		/// Uses Settings.VarietyPenalty for base strength and Settings.VarietyDampening for action override.
 		/// </summary>
 		private void ApplyVarietyPenaltiesWithDampening(Dictionary<int, DriverScore> driverScores)
 		{
-			int[] basePenalties = { 80, 50, 30, 20, 15, 12, 10, 8 };
+			// Scale penalties based on VarietyPenalty setting (default 60)
+			// Higher = more variety enforcement
+			float penaltyScale = Settings.VarietyPenalty / 60.0f;
+			int[] basePenalties = {
+				(int)(60 * penaltyScale),  // Most recent
+				(int)(40 * penaltyScale),
+				(int)(25 * penaltyScale),
+				(int)(15 * penaltyScale),
+				(int)(10 * penaltyScale),
+				(int)(8 * penaltyScale),
+				(int)(6 * penaltyScale),
+				(int)(4 * penaltyScale)
+			};
+
+			// Dampening percentage from settings (0-100, where 100 = action fully overrides variety)
+			float maxDampening = Settings.VarietyDampening / 100.0f;
 
 			for (int i = 0; i < _recentlySelectedDrivers.Count && i < basePenalties.Length; i++)
 			{
@@ -1271,15 +1308,16 @@ namespace iRacingReplayDirector.AI.Director
 				var score = driverScores[driverNum];
 				int basePenalty = basePenalties[i];
 
-				// Dampen penalty based on action level
-				// At 0 action: full penalty (dampener = 1.0)
-				// At max action: only 20% penalty (dampener = 0.2)
-				float dampener = 1.0f - (score.ActionLevel * 0.8f);
+				// Dampen penalty based on action level, but always keep at least 40% penalty
+				// This ensures variety still matters even during high action
+				float dampener = 1.0f - (score.ActionLevel * maxDampening);
+				dampener = Math.Max(dampener, 0.4f); // Floor: always at least 40% of penalty applies
+
 				int adjustedPenalty = (int)(basePenalty * dampener);
 
 				score.VarietyPenalty = adjustedPenalty;
 				score.BaseScore -= adjustedPenalty;
-				score.Breakdown.Add($"Variety penalty (#{i + 1}): -{adjustedPenalty} (dampened from {basePenalty})");
+				score.Breakdown.Add($"Variety (#{i + 1}): -{adjustedPenalty}");
 			}
 		}
 

@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="AI Director Settings" Height="450" Width="500"
+        Title="AI Director Settings" Height="580" Width="520"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -83,6 +83,104 @@
                     </StackPanel>
                     <TextBlock Text="Lower = more detail but slower scan" FontSize="11" Foreground="Gray" Margin="0,2,0,0"/>
                 </StackPanel>
+            </TabItem>
+
+            <!-- Driver Selection Tab -->
+            <TabItem Header="Driver Selection">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="Event Weights" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                        <TextBlock Text="How much each event type influences driver selection" FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Incidents:" VerticalAlignment="Center"/>
+                            <Slider Grid.Row="0" Grid.Column="1" x:Name="IncidentWeightSlider" Minimum="0" Maximum="100" Value="50" TickFrequency="10" IsSnapToTickEnabled="True"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Value, ElementName=IncidentWeightSlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Overtakes:" VerticalAlignment="Center" Margin="0,5,0,0"/>
+                            <Slider Grid.Row="1" Grid.Column="1" x:Name="OvertakeWeightSlider" Minimum="0" Maximum="100" Value="40" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=OvertakeWeightSlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Battles:" VerticalAlignment="Center" Margin="0,5,0,0"/>
+                            <Slider Grid.Row="2" Grid.Column="1" x:Name="BattleWeightSlider" Minimum="0" Maximum="100" Value="35" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Value, ElementName=BattleWeightSlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                        </Grid>
+
+                        <TextBlock Text="Bonus Weights" FontWeight="SemiBold" Margin="0,20,0,5"/>
+                        <TextBlock Text="Additional factors that boost driver selection" FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Momentum:" VerticalAlignment="Center" ToolTip="Bonus for drivers gaining positions"/>
+                            <Slider Grid.Row="0" Grid.Column="1" x:Name="MomentumWeightSlider" Minimum="0" Maximum="50" Value="25" TickFrequency="5" IsSnapToTickEnabled="True"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Value, ElementName=MomentumWeightSlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Pack Racing:" VerticalAlignment="Center" Margin="0,5,0,0" ToolTip="Bonus for drivers in groups"/>
+                            <Slider Grid.Row="1" Grid.Column="1" x:Name="PackWeightSlider" Minimum="0" Maximum="50" Value="15" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=PackWeightSlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Fresh Action:" VerticalAlignment="Center" Margin="0,5,0,0" ToolTip="Bonus for recent position changes"/>
+                            <Slider Grid.Row="2" Grid.Column="1" x:Name="FreshActionWeightSlider" Minimum="0" Maximum="50" Value="15" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Value, ElementName=FreshActionWeightSlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Position:" VerticalAlignment="Center" Margin="0,5,0,0" ToolTip="Baseline interest from running position"/>
+                            <Slider Grid.Row="3" Grid.Column="1" x:Name="PositionWeightSlider" Minimum="0" Maximum="30" Value="15" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding Value, ElementName=PositionWeightSlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                        </Grid>
+
+                        <TextBlock Text="Variety Control" FontWeight="SemiBold" Margin="0,20,0,5"/>
+                        <TextBlock Text="How strongly to enforce driver switching" FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Variety Strength:" VerticalAlignment="Center" ToolTip="Penalty for recently shown drivers"/>
+                            <Slider Grid.Row="0" Grid.Column="1" x:Name="VarietyPenaltySlider" Minimum="20" Maximum="100" Value="60" TickFrequency="10" IsSnapToTickEnabled="True"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Value, ElementName=VarietyPenaltySlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Action Override:" VerticalAlignment="Center" Margin="0,5,0,0" ToolTip="How much action reduces variety penalty (0=never, 100=fully)"/>
+                            <Slider Grid.Row="1" Grid.Column="1" x:Name="VarietyDampeningSlider" Minimum="0" Maximum="100" Value="40" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=VarietyDampeningSlider, StringFormat={}{0:0}}%" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Min Cuts/Minute:" VerticalAlignment="Center" Margin="0,5,0,0" ToolTip="Minimum driver switches per minute"/>
+                            <Slider Grid.Row="2" Grid.Column="1" x:Name="MinCutsSlider" Minimum="2" Maximum="10" Value="4" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Value, ElementName=MinCutsSlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                        </Grid>
+
+                        <Button Content="Reset to Defaults" Width="120" HorizontalAlignment="Left" Margin="0,20,0,0" Click="ResetWeights_Click"/>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 
