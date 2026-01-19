@@ -37,7 +37,7 @@ CAMERA TYPES (use exact names from the session's available cameras):
 - Chopper/Blimp: Aerial views, excellent for showing the field
 - Nose/Gearbox/Gyro: Unique onboard angles
 
-DO NOT USE: Scenic, Pit Lane (these cameras don't show racing action)
+ONLY use cameras from the provided list of available cameras.
 
 BROADCAST DIRECTING GUIDELINES:
 1. VARIETY: Mix camera types - never use the same camera twice in a row
@@ -101,15 +101,12 @@ Sort by frame number ascending. Spread actions across the ENTIRE replay duration
 			sb.AppendLine($"For {targetCuts} camera switches, space them approximately {framesPerCut} frames apart.");
 			sb.AppendLine();
 
-			// Available cameras from this session (exclude cameras that don't show racing action)
+			// Available cameras from this session (already filtered by settings)
 			sb.AppendLine("=== AVAILABLE CAMERAS (use these exact names) ===");
 			if (summary.AvailableCameras != null && summary.AvailableCameras.Count > 0)
 			{
-				var excludedCameras = new[] { "Scenic", "Pit Lane", "Pit Lane 2", "Chase", "Far Chase" };
-				var validCameras = summary.AvailableCameras
-					.Where(c => !excludedCameras.Any(ex => c.GroupName.Equals(ex, System.StringComparison.OrdinalIgnoreCase)))
-					.Select(c => c.GroupName);
-				sb.AppendLine(string.Join(", ", validCameras));
+				var cameraNames = summary.AvailableCameras.Select(c => c.GroupName);
+				sb.AppendLine(string.Join(", ", cameraNames));
 			}
 			else
 			{

@@ -1,6 +1,7 @@
 ﻿using iRacingReplayDirector.AI.Director;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows.Input;
 using iRacingSdkWrapper.Bitfields;
 using iRacingSimulator;
@@ -79,8 +80,68 @@ namespace iRacingReplayDirector
 				{
 					_overlayDriver = value;
 					OnPropertyChanged("OverlayDriver");
+
+					// Update ahead/behind drivers based on position
+					UpdateRelativeDrivers();
 				}
 			}
+		}
+
+		// Driver ahead of the overlay driver (lower position number)
+		private Driver _aheadDriver;
+		public Driver AheadDriver
+		{
+			get { return _aheadDriver; }
+			set
+			{
+				if (_aheadDriver != value)
+				{
+					_aheadDriver = value;
+					OnPropertyChanged("AheadDriver");
+				}
+			}
+		}
+
+		// Driver behind the overlay driver (higher position number)
+		private Driver _behindDriver;
+		public Driver BehindDriver
+		{
+			get { return _behindDriver; }
+			set
+			{
+				if (_behindDriver != value)
+				{
+					_behindDriver = value;
+					OnPropertyChanged("BehindDriver");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Update the AheadDriver and BehindDriver based on OverlayDriver's position.
+		/// </summary>
+		private void UpdateRelativeDrivers()
+		{
+			if (_overlayDriver == null || Drivers == null)
+			{
+				AheadDriver = null;
+				BehindDriver = null;
+				return;
+			}
+
+			int currentPosition = _overlayDriver.Position;
+
+			// Find driver ahead (position - 1)
+			AheadDriver = Drivers.FirstOrDefault(d =>
+				d != null &&
+				d.Position == currentPosition - 1 &&
+				d.TrackSurface != TrackSurfaces.NotInWorld);
+
+			// Find driver behind (position + 1)
+			BehindDriver = Drivers.FirstOrDefault(d =>
+				d != null &&
+				d.Position == currentPosition + 1 &&
+				d.TrackSurface != TrackSurfaces.NotInWorld);
 		}
 
 		private Driver _currentDriver;

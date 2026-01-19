@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,6 +10,8 @@ namespace iRacingReplayDirector
 	{
 		ReplayDirectorVM _vm;
 		private DriverOverlayWindow _driverOverlay;
+		private AheadDriverOverlayWindow _aheadDriverOverlay;
+		private BehindDriverOverlayWindow _behindDriverOverlay;
 
 		public MainWindow()
 		{
@@ -17,7 +19,7 @@ namespace iRacingReplayDirector
 
 			_vm = this.DataContext as ReplayDirectorVM;
 
-			// Subscribe to property changes to manage driver overlay
+			// Subscribe to property changes to manage driver overlays
 			_vm.PropertyChanged += ViewModel_PropertyChanged;
 		}
 
@@ -27,11 +29,11 @@ namespace iRacingReplayDirector
 			{
 				if (_vm.PlaybackEnabled)
 				{
-					ShowDriverOverlay();
+					ShowDriverOverlays();
 				}
 				else
 				{
-					HideDriverOverlay();
+					HideDriverOverlays();
 				}
 			}
 			else if (e.PropertyName == "ShowDriverOverlay")
@@ -39,46 +41,98 @@ namespace iRacingReplayDirector
 				// Handle setting change while playing
 				if (_vm.PlaybackEnabled)
 				{
-					if (_vm.ShowDriverOverlay)
-					{
-						ShowDriverOverlay();
-					}
-					else
-					{
-						HideDriverOverlay();
-					}
+					UpdateCurrentDriverOverlay();
 				}
 			}
 		}
 
-		private void ShowDriverOverlay()
+		private void ShowDriverOverlays()
 		{
-			// Only show if the setting is enabled
-			if (!_vm.ShowDriverOverlay)
-				return;
+			var settings = _vm.AIDirector?.Settings;
 
-			if (_driverOverlay == null)
+			// Show current driver overlay if enabled (use existing ShowDriverOverlay setting or AI Director setting)
+			if (_vm.ShowDriverOverlay || (settings?.ShowCurrentDriverOverlay ?? false))
 			{
-				_driverOverlay = new DriverOverlayWindow(_vm);
+				if (_driverOverlay == null)
+				{
+					_driverOverlay = new DriverOverlayWindow(_vm);
+				}
+				_driverOverlay.Show();
 			}
-			_driverOverlay.Show();
+
+			// Show ahead driver overlay if enabled in AI Director settings
+			if (settings?.ShowAheadDriverOverlay ?? false)
+			{
+				if (_aheadDriverOverlay == null)
+				{
+					_aheadDriverOverlay = new AheadDriverOverlayWindow(_vm, settings);
+				}
+				_aheadDriverOverlay.Show();
+			}
+
+			// Show behind driver overlay if enabled in AI Director settings
+			if (settings?.ShowBehindDriverOverlay ?? false)
+			{
+				if (_behindDriverOverlay == null)
+				{
+					_behindDriverOverlay = new BehindDriverOverlayWindow(_vm, settings);
+				}
+				_behindDriverOverlay.Show();
+			}
 		}
 
-		private void HideDriverOverlay()
+		private void HideDriverOverlays()
 		{
 			if (_driverOverlay != null)
 			{
 				_driverOverlay.Hide();
 			}
+			if (_aheadDriverOverlay != null)
+			{
+				_aheadDriverOverlay.Hide();
+			}
+			if (_behindDriverOverlay != null)
+			{
+				_behindDriverOverlay.Hide();
+			}
+		}
+
+		private void UpdateCurrentDriverOverlay()
+		{
+			if (_vm.ShowDriverOverlay)
+			{
+				if (_driverOverlay == null)
+				{
+					_driverOverlay = new DriverOverlayWindow(_vm);
+				}
+				_driverOverlay.Show();
+			}
+			else
+			{
+				if (_driverOverlay != null)
+				{
+					_driverOverlay.Hide();
+				}
+			}
 		}
 
 		private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
 		{
-			// Clean up driver overlay
+			// Clean up driver overlays
 			if (_driverOverlay != null)
 			{
 				_driverOverlay.Close();
 				_driverOverlay = null;
+			}
+			if (_aheadDriverOverlay != null)
+			{
+				_aheadDriverOverlay.Close();
+				_aheadDriverOverlay = null;
+			}
+			if (_behindDriverOverlay != null)
+			{
+				_behindDriverOverlay.Close();
+				_behindDriverOverlay = null;
 			}
 
 			// Unsubscribe from events

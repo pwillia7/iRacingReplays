@@ -1,4 +1,5 @@
 using iRacingReplayDirector.AI.Director;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -63,6 +64,72 @@ namespace iRacingReplayDirector
 			VarietyPenaltySlider.Value = _aiDirector.Settings.VarietyPenalty;
 			VarietyDampeningSlider.Value = _aiDirector.Settings.VarietyDampening;
 			MinCutsSlider.Value = _aiDirector.Settings.MinCutsPerMinute;
+
+			// Load focus driver settings
+			FocusDriverBox.Text = _aiDirector.Settings.FocusDriverNumber.ToString();
+			FocusDriverBonusSlider.Value = _aiDirector.Settings.FocusDriverBonus;
+
+			// Load camera plan generation settings
+			UseAICheckBox.IsChecked = _aiDirector.Settings.UseAIForCameraPlan;
+			SecondsBetweenCutsSlider.Value = _aiDirector.Settings.SecondsBetweenCuts;
+			UpdateAIModeVisibility();
+
+			// Load camera exclusion settings
+			LoadCameraExclusions();
+
+			// Load overlay settings
+			LoadOverlaySettings();
+		}
+
+		private void LoadOverlaySettings()
+		{
+			ShowCurrentDriverOverlayCheckBox.IsChecked = _aiDirector.Settings.ShowCurrentDriverOverlay;
+			ShowAheadDriverOverlayCheckBox.IsChecked = _aiDirector.Settings.ShowAheadDriverOverlay;
+			ShowBehindDriverOverlayCheckBox.IsChecked = _aiDirector.Settings.ShowBehindDriverOverlay;
+
+			// Set position combo box
+			foreach (ComboBoxItem item in OverlayPositionComboBox.Items)
+			{
+				if (item.Tag?.ToString() == _aiDirector.Settings.OverlayPosition)
+				{
+					OverlayPositionComboBox.SelectedItem = item;
+					break;
+				}
+			}
+
+			OverlayOffsetSlider.Value = _aiDirector.Settings.OverlayOffset;
+			OverlayFontSizeSlider.Value = _aiDirector.Settings.OverlayFontSize;
+		}
+
+		private void LoadCameraExclusions()
+		{
+			var excluded = _aiDirector.Settings.GetExcludedCameraList();
+
+			// TV Cameras
+			ExcludeTV1.IsChecked = excluded.Any(e => e.Equals("TV1", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeTV2.IsChecked = excluded.Any(e => e.Equals("TV2", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeTV3.IsChecked = excluded.Any(e => e.Equals("TV3", System.StringComparison.OrdinalIgnoreCase));
+
+			// Chase Cameras
+			ExcludeChase.IsChecked = excluded.Any(e => e.Equals("Chase", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeFarChase.IsChecked = excluded.Any(e => e.Equals("Far Chase", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeRearChase.IsChecked = excluded.Any(e => e.Equals("Rear Chase", System.StringComparison.OrdinalIgnoreCase));
+
+			// Onboard Cameras
+			ExcludeCockpit.IsChecked = excluded.Any(e => e.Equals("Cockpit", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeRollBar.IsChecked = excluded.Any(e => e.Equals("Roll Bar", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeGyro.IsChecked = excluded.Any(e => e.Equals("Gyro", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeNose.IsChecked = excluded.Any(e => e.Equals("Nose", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeGearbox.IsChecked = excluded.Any(e => e.Equals("Gearbox", System.StringComparison.OrdinalIgnoreCase));
+
+			// Aerial Cameras
+			ExcludeChopper.IsChecked = excluded.Any(e => e.Equals("Chopper", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeBlimp.IsChecked = excluded.Any(e => e.Equals("Blimp", System.StringComparison.OrdinalIgnoreCase));
+
+			// Other Cameras
+			ExcludeScenic.IsChecked = excluded.Any(e => e.Equals("Scenic", System.StringComparison.OrdinalIgnoreCase));
+			ExcludePitLane.IsChecked = excluded.Any(e => e.Equals("Pit Lane", System.StringComparison.OrdinalIgnoreCase));
+			ExcludePitLane2.IsChecked = excluded.Any(e => e.Equals("Pit Lane 2", System.StringComparison.OrdinalIgnoreCase));
 		}
 
 		private void SaveSettings()
@@ -101,6 +168,69 @@ namespace iRacingReplayDirector
 			_aiDirector.Settings.VarietyPenalty = (int)VarietyPenaltySlider.Value;
 			_aiDirector.Settings.VarietyDampening = (int)VarietyDampeningSlider.Value;
 			_aiDirector.Settings.MinCutsPerMinute = (int)MinCutsSlider.Value;
+
+			// Save focus driver settings
+			if (int.TryParse(FocusDriverBox.Text, out int focusDriverNumber))
+			{
+				_aiDirector.Settings.FocusDriverNumber = focusDriverNumber;
+			}
+			_aiDirector.Settings.FocusDriverBonus = (int)FocusDriverBonusSlider.Value;
+
+			// Save camera plan generation settings
+			_aiDirector.Settings.UseAIForCameraPlan = UseAICheckBox.IsChecked ?? true;
+			_aiDirector.Settings.SecondsBetweenCuts = (int)SecondsBetweenCutsSlider.Value;
+
+			// Save camera exclusion settings
+			SaveCameraExclusions();
+
+			// Save overlay settings
+			SaveOverlaySettings();
+		}
+
+		private void SaveOverlaySettings()
+		{
+			_aiDirector.Settings.ShowCurrentDriverOverlay = ShowCurrentDriverOverlayCheckBox.IsChecked ?? true;
+			_aiDirector.Settings.ShowAheadDriverOverlay = ShowAheadDriverOverlayCheckBox.IsChecked ?? false;
+			_aiDirector.Settings.ShowBehindDriverOverlay = ShowBehindDriverOverlayCheckBox.IsChecked ?? false;
+
+			var selectedPosition = OverlayPositionComboBox.SelectedItem as ComboBoxItem;
+			_aiDirector.Settings.OverlayPosition = selectedPosition?.Tag?.ToString() ?? "Bottom";
+
+			_aiDirector.Settings.OverlayOffset = (int)OverlayOffsetSlider.Value;
+			_aiDirector.Settings.OverlayFontSize = (int)OverlayFontSizeSlider.Value;
+		}
+
+		private void SaveCameraExclusions()
+		{
+			var excludedCameras = new System.Collections.Generic.List<string>();
+
+			// TV Cameras
+			if (ExcludeTV1.IsChecked == true) excludedCameras.Add("TV1");
+			if (ExcludeTV2.IsChecked == true) excludedCameras.Add("TV2");
+			if (ExcludeTV3.IsChecked == true) excludedCameras.Add("TV3");
+
+			// Chase Cameras
+			if (ExcludeChase.IsChecked == true) excludedCameras.Add("Chase");
+			if (ExcludeFarChase.IsChecked == true) excludedCameras.Add("Far Chase");
+			if (ExcludeRearChase.IsChecked == true) excludedCameras.Add("Rear Chase");
+
+			// Onboard Cameras
+			if (ExcludeCockpit.IsChecked == true) excludedCameras.Add("Cockpit");
+			if (ExcludeRollBar.IsChecked == true) excludedCameras.Add("Roll Bar");
+			if (ExcludeGyro.IsChecked == true) excludedCameras.Add("Gyro");
+			if (ExcludeNose.IsChecked == true) excludedCameras.Add("Nose");
+			if (ExcludeGearbox.IsChecked == true) excludedCameras.Add("Gearbox");
+
+			// Aerial Cameras
+			if (ExcludeChopper.IsChecked == true) excludedCameras.Add("Chopper");
+			if (ExcludeBlimp.IsChecked == true) excludedCameras.Add("Blimp");
+
+			// Other Cameras
+			if (ExcludeScenic.IsChecked == true) excludedCameras.Add("Scenic");
+			if (ExcludePitLane.IsChecked == true) excludedCameras.Add("Pit Lane");
+			if (ExcludePitLane2.IsChecked == true) excludedCameras.Add("Pit Lane 2");
+
+			_aiDirector.Settings.ExcludedCameras = string.Join(",", excludedCameras);
 		}
 
 		private void ProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -119,6 +249,21 @@ namespace iRacingReplayDirector
 				OpenAIPanel.Visibility = Visibility.Visible;
 				LocalModelPanel.Visibility = Visibility.Collapsed;
 			}
+		}
+
+		private void UseAICheckBox_Changed(object sender, RoutedEventArgs e)
+		{
+			UpdateAIModeVisibility();
+		}
+
+		private void UpdateAIModeVisibility()
+		{
+			if (AIProviderPanel == null || RandomModePanel == null)
+				return;
+
+			bool useAI = UseAICheckBox.IsChecked ?? true;
+			AIProviderPanel.Visibility = useAI ? Visibility.Visible : Visibility.Collapsed;
+			RandomModePanel.Visibility = useAI ? Visibility.Collapsed : Visibility.Visible;
 		}
 
 		private async void TestConnection_Click(object sender, RoutedEventArgs e)
@@ -201,6 +346,70 @@ namespace iRacingReplayDirector
 			VarietyPenaltySlider.Value = 60;
 			VarietyDampeningSlider.Value = 40;
 			MinCutsSlider.Value = 4;
+
+			// Reset focus driver
+			FocusDriverBox.Text = "0";
+			FocusDriverBonusSlider.Value = 30;
+		}
+
+		private void SelectAllCameras_Click(object sender, RoutedEventArgs e)
+		{
+			// Check all cameras (exclude all)
+			SetAllCameraCheckboxes(true);
+		}
+
+		private void DeselectAllCameras_Click(object sender, RoutedEventArgs e)
+		{
+			// Uncheck all cameras (include all)
+			SetAllCameraCheckboxes(false);
+		}
+
+		private void ResetCameras_Click(object sender, RoutedEventArgs e)
+		{
+			// Reset to defaults (only Scenic, Pit Lane, Pit Lane 2 excluded)
+			SetAllCameraCheckboxes(false);
+			ExcludeScenic.IsChecked = true;
+			ExcludePitLane.IsChecked = true;
+			ExcludePitLane2.IsChecked = true;
+		}
+
+		private void SetAllCameraCheckboxes(bool isChecked)
+		{
+			// TV Cameras
+			ExcludeTV1.IsChecked = isChecked;
+			ExcludeTV2.IsChecked = isChecked;
+			ExcludeTV3.IsChecked = isChecked;
+
+			// Chase Cameras
+			ExcludeChase.IsChecked = isChecked;
+			ExcludeFarChase.IsChecked = isChecked;
+			ExcludeRearChase.IsChecked = isChecked;
+
+			// Onboard Cameras
+			ExcludeCockpit.IsChecked = isChecked;
+			ExcludeRollBar.IsChecked = isChecked;
+			ExcludeGyro.IsChecked = isChecked;
+			ExcludeNose.IsChecked = isChecked;
+			ExcludeGearbox.IsChecked = isChecked;
+
+			// Aerial Cameras
+			ExcludeChopper.IsChecked = isChecked;
+			ExcludeBlimp.IsChecked = isChecked;
+
+			// Other Cameras
+			ExcludeScenic.IsChecked = isChecked;
+			ExcludePitLane.IsChecked = isChecked;
+			ExcludePitLane2.IsChecked = isChecked;
+		}
+
+		private void ResetOverlays_Click(object sender, RoutedEventArgs e)
+		{
+			ShowCurrentDriverOverlayCheckBox.IsChecked = true;
+			ShowAheadDriverOverlayCheckBox.IsChecked = false;
+			ShowBehindDriverOverlayCheckBox.IsChecked = false;
+			OverlayPositionComboBox.SelectedIndex = 1; // Bottom
+			OverlayOffsetSlider.Value = 100;
+			OverlayFontSizeSlider.Value = 32;
 		}
 	}
 }

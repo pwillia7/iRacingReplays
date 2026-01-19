@@ -448,6 +448,7 @@ namespace iRacingReplayDirector.AI.Director
 			catch { }
 
 			// Add camera summaries - use ToList() to avoid collection modified exception
+			// Filter out excluded cameras based on settings
 			try
 			{
 				if (_viewModel?.Cameras != null)
@@ -456,6 +457,9 @@ namespace iRacingReplayDirector.AI.Director
 					foreach (var camera in camerasCopy)
 					{
 						if (camera == null) continue;
+						// Skip excluded cameras
+						if (Settings.IsCameraExcluded(camera.GroupName ?? string.Empty))
+							continue;
 						summary.AvailableCameras.Add(new CameraSummary
 						{
 							GroupNum = camera.GroupNum,
@@ -482,6 +486,15 @@ namespace iRacingReplayDirector.AI.Director
 
 			try
 			{
+				// Check if AI is disabled - use random camera generation
+				if (!Settings.UseAIForCameraPlan)
+				{
+					GeneratedPlan = GenerateRandomCameraPlan();
+					StatusMessage = $"Random plan generated: {GeneratedPlan.CameraActions.Count} camera actions";
+					State = AIDirectorState.Idle;
+					return GeneratedPlan;
+				}
+
 				var provider = GetCurrentProvider();
 
 				if (!provider.IsConfigured)
@@ -514,6 +527,71 @@ namespace iRacingReplayDirector.AI.Director
 				State = AIDirectorState.Error;
 				throw;
 			}
+		}
+
+		/// <summary>
+		/// Generate a camera plan with random camera selection (no AI/LLM).
+		/// </summary>
+		private CameraPlan GenerateRandomCameraPlan()
+		{
+			var plan = new CameraPlan
+			{
+				GeneratedBy = "Random",
+				GeneratedAt = DateTime.Now,
+				TotalDurationFrames = LastScanResult.EndFrame - LastScanResult.StartFrame
+			};
+
+			// Get available cameras (not excluded)
+			var availableCameras = _viewModel.Cameras
+				.Where(c => c != null && !Settings.IsCameraExcluded(c.GroupName))
+				.Select(c => c.GroupName)
+				.ToList();
+
+			if (!availableCameras.Any())
+			{
+				// Fallback to all cameras if none available
+				availableCameras = _viewModel.Cameras
+					.Where(c => c != null)
+					.Select(c => c.GroupName)
+					.ToList();
+			}
+
+			if (!availableCameras.Any())
+				return plan;
+
+			// Calculate frame interval based on settings
+			int fps = 60; // Default fps
+			int framesPerCut = Settings.SecondsBetweenCuts * fps;
+
+			int currentFrame = LastScanResult.StartFrame;
+			string lastCamera = null;
+
+			while (currentFrame < LastScanResult.EndFrame)
+			{
+				// Pick a random camera (different from the last one if possible)
+				string selectedCamera;
+				if (availableCameras.Count > 1 && lastCamera != null)
+				{
+					var otherCameras = availableCameras.Where(c => c != lastCamera).ToList();
+					selectedCamera = otherCameras[_random.Next(otherCameras.Count)];
+				}
+				else
+				{
+					selectedCamera = availableCameras[_random.Next(availableCameras.Count)];
+				}
+
+				plan.CameraActions.Add(new CameraAction
+				{
+					Frame = currentFrame,
+					CameraName = selectedCamera,
+					DurationSeconds = Settings.SecondsBetweenCuts
+				});
+
+				lastCamera = selectedCamera;
+				currentFrame += framesPerCut;
+			}
+
+			return plan;
 		}
 
 		private async Task<CameraPlan> GenerateChunkedPlanAsync(ILLMProvider provider, RaceEventSummary fullSummary, CancellationToken cancellationToken)
@@ -645,25 +723,22 @@ namespace iRacingReplayDirector.AI.Director
 						if (driver == null) continue;
 					}
 
-					// Excluded cameras that don't show good racing action
-					var excludedCameras = new[] { "Scenic", "Pit Lane", "Pit Lane 2", "Chase", "Far Chase" };
-
-					// Find camera by name (excluding restricted cameras)
+					// Find camera by name (excluding cameras based on settings)
 					var camera = _viewModel.Cameras.FirstOrDefault(c =>
 						c.GroupName.Equals(action.CameraName, StringComparison.OrdinalIgnoreCase) &&
-						!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
+						!Settings.IsCameraExcluded(c.GroupName));
 					if (camera == null)
 					{
 						// Try partial match (excluding restricted cameras)
 						camera = _viewModel.Cameras.FirstOrDefault(c =>
 							c.GroupName.IndexOf(action.CameraName, StringComparison.OrdinalIgnoreCase) >= 0 &&
-							!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
+							!Settings.IsCameraExcluded(c.GroupName));
 					}
 					if (camera == null)
 					{
 						// Use first available non-excluded camera as fallback
 						camera = _viewModel.Cameras.FirstOrDefault(c =>
-							!excludedCameras.Any(ex => c.GroupName.Equals(ex, StringComparison.OrdinalIgnoreCase)));
+							!Settings.IsCameraExcluded(c.GroupName));
 						if (camera == null) continue;
 					}
 
@@ -872,7 +947,11 @@ namespace iRacingReplayDirector.AI.Director
 
 			ApplyFieldDiversityBonus(driverScores, activeDrivers);
 
-			// === PHASE 7: Select best driver with tie-breaking ===
+			// === PHASE 7: Apply focus driver bonus ===
+
+			ApplyFocusDriverBonus(driverScores);
+
+			// === PHASE 8: Select best driver with tie-breaking ===
 
 			var bestDriver = SelectWithTieBreaking(driverScores);
 
@@ -1366,6 +1445,28 @@ namespace iRacingReplayDirector.AI.Director
 						}
 					}
 				}
+			}
+		}
+
+		/// <summary>
+		/// Apply bonus to the focus driver (specified by car number in settings).
+		/// </summary>
+		private void ApplyFocusDriverBonus(Dictionary<int, DriverScore> driverScores)
+		{
+			// Check if a focus driver is configured (0 means no focus driver)
+			int focusDriverNumber = Settings.FocusDriverNumber;
+			if (focusDriverNumber <= 0)
+				return;
+
+			int focusBonus = Settings.FocusDriverBonus;
+			if (focusBonus <= 0)
+				return;
+
+			// Apply bonus to the focus driver if they're in the scoring list
+			if (driverScores.ContainsKey(focusDriverNumber))
+			{
+				driverScores[focusDriverNumber].BaseScore += focusBonus;
+				driverScores[focusDriverNumber].Breakdown.Add($"Focus driver (#{focusDriverNumber}): +{focusBonus}");
 			}
 		}
 

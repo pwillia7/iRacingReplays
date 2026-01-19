@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Linq;
 
 namespace iRacingReplayDirector.AI.Director
 {
@@ -156,6 +157,134 @@ namespace iRacingReplayDirector.AI.Director
 		{
 			get { return _minCutsPerMinute; }
 			set { _minCutsPerMinute = value; OnPropertyChanged("MinCutsPerMinute"); }
+		}
+
+		// ===========================================
+		// Camera Plan Generation Settings
+		// ===========================================
+
+		// Whether to use AI/LLM for camera plan generation (false = random cameras)
+		private bool _useAIForCameraPlan = true;
+		public bool UseAIForCameraPlan
+		{
+			get { return _useAIForCameraPlan; }
+			set { _useAIForCameraPlan = value; OnPropertyChanged("UseAIForCameraPlan"); }
+		}
+
+		// Target seconds between camera cuts (used for random mode)
+		private int _secondsBetweenCuts = 10;
+		public int SecondsBetweenCuts
+		{
+			get { return _secondsBetweenCuts; }
+			set { _secondsBetweenCuts = value; OnPropertyChanged("SecondsBetweenCuts"); }
+		}
+
+		// ===========================================
+		// Camera Selection Settings
+		// ===========================================
+
+		// Comma-separated list of camera names to exclude
+		private string _excludedCameras = "Scenic,Pit Lane,Pit Lane 2";
+		public string ExcludedCameras
+		{
+			get { return _excludedCameras; }
+			set { _excludedCameras = value; OnPropertyChanged("ExcludedCameras"); }
+		}
+
+		/// <summary>
+		/// Get excluded cameras as an array of names.
+		/// </summary>
+		public string[] GetExcludedCameraList()
+		{
+			if (string.IsNullOrWhiteSpace(_excludedCameras))
+				return new string[0];
+
+			return _excludedCameras
+				.Split(new[] { ',' }, System.StringSplitOptions.RemoveEmptyEntries)
+				.Select(s => s.Trim())
+				.Where(s => !string.IsNullOrEmpty(s))
+				.ToArray();
+		}
+
+		/// <summary>
+		/// Check if a camera name is excluded.
+		/// </summary>
+		public bool IsCameraExcluded(string cameraName)
+		{
+			var excluded = GetExcludedCameraList();
+			return excluded.Any(ex => cameraName.Equals(ex, System.StringComparison.OrdinalIgnoreCase));
+		}
+
+		// ===========================================
+		// Focus Driver Settings
+		// ===========================================
+
+		// Car number to focus on (0 = no focus driver)
+		private int _focusDriverNumber = 0;
+		public int FocusDriverNumber
+		{
+			get { return _focusDriverNumber; }
+			set { _focusDriverNumber = value; OnPropertyChanged("FocusDriverNumber"); }
+		}
+
+		// Bonus added to focus driver's score (0-100)
+		private int _focusDriverBonus = 30;
+		public int FocusDriverBonus
+		{
+			get { return _focusDriverBonus; }
+			set { _focusDriverBonus = value; OnPropertyChanged("FocusDriverBonus"); }
+		}
+
+		// ===========================================
+		// Overlay Settings
+		// ===========================================
+
+		// Show the current driver overlay during playback
+		private bool _showCurrentDriverOverlay = true;
+		public bool ShowCurrentDriverOverlay
+		{
+			get { return _showCurrentDriverOverlay; }
+			set { _showCurrentDriverOverlay = value; OnPropertyChanged("ShowCurrentDriverOverlay"); }
+		}
+
+		// Show the driver ahead overlay during playback
+		private bool _showAheadDriverOverlay = false;
+		public bool ShowAheadDriverOverlay
+		{
+			get { return _showAheadDriverOverlay; }
+			set { _showAheadDriverOverlay = value; OnPropertyChanged("ShowAheadDriverOverlay"); }
+		}
+
+		// Show the driver behind overlay during playback
+		private bool _showBehindDriverOverlay = false;
+		public bool ShowBehindDriverOverlay
+		{
+			get { return _showBehindDriverOverlay; }
+			set { _showBehindDriverOverlay = value; OnPropertyChanged("ShowBehindDriverOverlay"); }
+		}
+
+		// Overlay vertical position: "Top" or "Bottom"
+		private string _overlayPosition = "Bottom";
+		public string OverlayPosition
+		{
+			get { return _overlayPosition; }
+			set { _overlayPosition = value; OnPropertyChanged("OverlayPosition"); }
+		}
+
+		// Overlay offset from edge in pixels
+		private int _overlayOffset = 100;
+		public int OverlayOffset
+		{
+			get { return _overlayOffset; }
+			set { _overlayOffset = value; OnPropertyChanged("OverlayOffset"); }
+		}
+
+		// Overlay font size
+		private int _overlayFontSize = 32;
+		public int OverlayFontSize
+		{
+			get { return _overlayFontSize; }
+			set { _overlayFontSize = value; OnPropertyChanged("OverlayFontSize"); }
 		}
 
 		public event PropertyChangedEventHandler PropertyChanged;

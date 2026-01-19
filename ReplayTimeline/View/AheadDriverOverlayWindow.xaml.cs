@@ -4,56 +4,51 @@ using System.Windows;
 
 namespace iRacingReplayDirector
 {
-	public partial class DriverOverlayWindow : Window
+	public partial class AheadDriverOverlayWindow : Window
 	{
 		private readonly ReplayDirectorVM _viewModel;
 		private readonly AIDirectorSettings _settings;
 
-		public DriverOverlayWindow(ReplayDirectorVM viewModel)
+		public AheadDriverOverlayWindow(ReplayDirectorVM viewModel, AIDirectorSettings settings)
 		{
 			InitializeComponent();
 			_viewModel = viewModel;
-			_settings = viewModel.AIDirector?.Settings;
+			_settings = settings;
 
 			// Subscribe to property changes to update the driver name
 			_viewModel.PropertyChanged += ViewModel_PropertyChanged;
 
-			// Set initial position based on settings
+			// Set initial position
 			PositionWindow();
 
 			// Set initial driver name
 			UpdateDriverName();
 
 			// Apply font size from settings
-			if (_settings != null && _settings.OverlayFontSize > 0)
-			{
-				DriverNameText.FontSize = _settings.OverlayFontSize;
-			}
+			DriverNameText.FontSize = _settings.OverlayFontSize > 0 ? _settings.OverlayFontSize - 8 : 24;
 		}
 
 		private void PositionWindow()
 		{
-			// Position at center of the primary screen, top or bottom based on settings
 			var screenWidth = SystemParameters.PrimaryScreenWidth;
 			var screenHeight = SystemParameters.PrimaryScreenHeight;
 
-			Left = (screenWidth - Width) / 2;
+			// Position to the left side of center
+			Left = (screenWidth / 2) - Width - 50;
 
-			int offset = _settings?.OverlayOffset ?? 100;
-			if (_settings?.OverlayPosition == "Top")
+			if (_settings.OverlayPosition == "Top")
 			{
-				Top = offset;
+				Top = _settings.OverlayOffset;
 			}
 			else
 			{
-				Top = screenHeight - Height - offset;
+				Top = screenHeight - Height - _settings.OverlayOffset;
 			}
 		}
 
 		private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
-			// Update when OverlayDriver changes (based on our applied camera nodes)
-			if (e.PropertyName == "OverlayDriver")
+			if (e.PropertyName == "AheadDriver")
 			{
 				UpdateDriverName();
 			}
@@ -61,11 +56,9 @@ namespace iRacingReplayDirector
 
 		private void UpdateDriverName()
 		{
-			// Use OverlayDriver which is set when our CamChangeNodes are applied
-			if (_viewModel.OverlayDriver != null)
+			if (_viewModel.AheadDriver != null)
 			{
-				// Show driver name with car number
-				string displayText = $"#{_viewModel.OverlayDriver.Number} {_viewModel.OverlayDriver.TeamName}";
+				string displayText = $"#{_viewModel.AheadDriver.Number} {_viewModel.AheadDriver.TeamName}";
 				DriverNameText.Text = displayText;
 			}
 			else
@@ -76,7 +69,6 @@ namespace iRacingReplayDirector
 
 		protected override void OnClosing(CancelEventArgs e)
 		{
-			// Unsubscribe from events
 			_viewModel.PropertyChanged -= ViewModel_PropertyChanged;
 			base.OnClosing(e);
 		}

@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="AI Director Settings" Height="580" Width="520"
+        Title="AI Director Settings" Height="650" Width="540"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -19,47 +19,74 @@
         <!-- Settings Content -->
         <TabControl Grid.Row="1">
             <!-- LLM Provider Tab -->
-            <TabItem Header="LLM Provider">
+            <TabItem Header="Camera Plan">
                 <StackPanel Margin="10">
-                    <TextBlock Text="Select Provider:" FontWeight="SemiBold" Margin="0,0,0,5"/>
-                    <ComboBox x:Name="ProviderComboBox" Width="200" HorizontalAlignment="Left"
-                              SelectionChanged="ProviderComboBox_SelectionChanged">
-                        <ComboBoxItem Content="OpenAI" Tag="OpenAI"/>
-                        <ComboBoxItem Content="Local Model" Tag="Local"/>
-                    </ComboBox>
+                    <TextBlock Text="Camera Plan Generation" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                    <TextBlock Text="Choose how camera switches are generated" FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
 
-                    <!-- OpenAI Settings -->
-                    <StackPanel x:Name="OpenAIPanel" Margin="0,15,0,0">
-                        <TextBlock Text="OpenAI Settings" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                    <CheckBox x:Name="UseAICheckBox" Content="Use AI/LLM for camera selection" IsChecked="True"
+                              Margin="0,0,0,10" Checked="UseAICheckBox_Changed" Unchecked="UseAICheckBox_Changed"/>
 
-                        <TextBlock Text="API Key:" Margin="0,5,0,2"/>
-                        <PasswordBox x:Name="ApiKeyBox" Width="350" HorizontalAlignment="Left"/>
+                    <!-- Random Mode Settings (shown when AI is disabled) -->
+                    <StackPanel x:Name="RandomModePanel" Visibility="Collapsed" Margin="0,0,0,15">
+                        <Border BorderBrush="Gray" BorderThickness="1" Padding="10" Background="#FFF8F8F8">
+                            <StackPanel>
+                                <TextBlock Text="Random Mode Settings" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                                <TextBlock Text="Cameras will be randomly selected from your available cameras list."
+                                           TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Seconds between cuts:" VerticalAlignment="Center" Width="140"/>
+                                    <Slider x:Name="SecondsBetweenCutsSlider" Minimum="5" Maximum="30" Value="10"
+                                            Width="150" TickFrequency="5" IsSnapToTickEnabled="True"/>
+                                    <TextBlock Text="{Binding Value, ElementName=SecondsBetweenCutsSlider, StringFormat={}{0:0}s}"
+                                               VerticalAlignment="Center" Margin="10,0,0,0" Width="30"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
 
-                        <TextBlock Text="Model:" Margin="0,10,0,2"/>
-                        <ComboBox x:Name="OpenAIModelComboBox" Width="200" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="gpt-3.5-turbo" IsSelected="True"/>
-                            <ComboBoxItem Content="gpt-4o-mini"/>
-                            <ComboBoxItem Content="gpt-4o"/>
-                            <ComboBoxItem Content="gpt-4-turbo"/>
+                    <!-- AI Provider Settings (shown when AI is enabled) -->
+                    <StackPanel x:Name="AIProviderPanel">
+                        <TextBlock Text="Select Provider:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="ProviderComboBox" Width="200" HorizontalAlignment="Left"
+                                  SelectionChanged="ProviderComboBox_SelectionChanged">
+                            <ComboBoxItem Content="OpenAI" Tag="OpenAI"/>
+                            <ComboBoxItem Content="Local Model" Tag="Local"/>
                         </ComboBox>
+
+                        <!-- OpenAI Settings -->
+                        <StackPanel x:Name="OpenAIPanel" Margin="0,15,0,0">
+                            <TextBlock Text="OpenAI Settings" FontWeight="SemiBold" Margin="0,0,0,5"/>
+
+                            <TextBlock Text="API Key:" Margin="0,5,0,2"/>
+                            <PasswordBox x:Name="ApiKeyBox" Width="350" HorizontalAlignment="Left"/>
+
+                            <TextBlock Text="Model:" Margin="0,10,0,2"/>
+                            <ComboBox x:Name="OpenAIModelComboBox" Width="200" HorizontalAlignment="Left">
+                                <ComboBoxItem Content="gpt-3.5-turbo" IsSelected="True"/>
+                                <ComboBoxItem Content="gpt-4o-mini"/>
+                                <ComboBoxItem Content="gpt-4o"/>
+                                <ComboBoxItem Content="gpt-4-turbo"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- Local Model Settings -->
+                        <StackPanel x:Name="LocalModelPanel" Margin="0,15,0,0" Visibility="Collapsed">
+                            <TextBlock Text="Local Model Settings" FontWeight="SemiBold" Margin="0,0,0,5"/>
+
+                            <TextBlock Text="Endpoint URL:" Margin="0,5,0,2"/>
+                            <TextBox x:Name="LocalEndpointBox" Width="350" HorizontalAlignment="Left"
+                                     Text="http://localhost:11434/v1/chat/completions"/>
+
+                            <TextBlock Text="Model Name:" Margin="0,10,0,2"/>
+                            <TextBox x:Name="LocalModelNameBox" Width="200" HorizontalAlignment="Left"
+                                     Text="llama3"/>
+                        </StackPanel>
+
+                        <Button Content="Test Connection" Width="120" HorizontalAlignment="Left" Margin="0,20,0,0"
+                                Click="TestConnection_Click"/>
+                        <TextBlock x:Name="ConnectionStatusText" Margin="0,5,0,0" Foreground="Gray"/>
                     </StackPanel>
-
-                    <!-- Local Model Settings -->
-                    <StackPanel x:Name="LocalModelPanel" Margin="0,15,0,0" Visibility="Collapsed">
-                        <TextBlock Text="Local Model Settings" FontWeight="SemiBold" Margin="0,0,0,5"/>
-
-                        <TextBlock Text="Endpoint URL:" Margin="0,5,0,2"/>
-                        <TextBox x:Name="LocalEndpointBox" Width="350" HorizontalAlignment="Left"
-                                 Text="http://localhost:11434/v1/chat/completions"/>
-
-                        <TextBlock Text="Model Name:" Margin="0,10,0,2"/>
-                        <TextBox x:Name="LocalModelNameBox" Width="200" HorizontalAlignment="Left"
-                                 Text="llama3"/>
-                    </StackPanel>
-
-                    <Button Content="Test Connection" Width="120" HorizontalAlignment="Left" Margin="0,20,0,0"
-                            Click="TestConnection_Click"/>
-                    <TextBlock x:Name="ConnectionStatusText" Margin="0,5,0,0" Foreground="Gray"/>
                 </StackPanel>
             </TabItem>
 
@@ -178,9 +205,127 @@
                             <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Value, ElementName=MinCutsSlider, StringFormat={}{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                         </Grid>
 
+                        <TextBlock Text="Focus Driver" FontWeight="SemiBold" Margin="0,20,0,5"/>
+                        <TextBlock Text="Give extra weight to a specific driver's actions" FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Car Number:" VerticalAlignment="Center" ToolTip="Enter car number to focus on (0 = none)"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" x:Name="FocusDriverBox" Width="60" HorizontalAlignment="Left" Text="0" ToolTip="Car number (0 = no focus driver)"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Focus Bonus:" VerticalAlignment="Center" Margin="0,5,0,0" ToolTip="Extra points added to focus driver's score"/>
+                            <Slider Grid.Row="1" Grid.Column="1" x:Name="FocusDriverBonusSlider" Minimum="0" Maximum="100" Value="30" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=FocusDriverBonusSlider, StringFormat=+{0:0}}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                        </Grid>
+
                         <Button Content="Reset to Defaults" Width="120" HorizontalAlignment="Left" Margin="0,20,0,0" Click="ResetWeights_Click"/>
                     </StackPanel>
                 </ScrollViewer>
+            </TabItem>
+
+            <!-- Camera Selection Tab -->
+            <TabItem Header="Cameras">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Camera Selection" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                    <TextBlock Text="Choose which cameras the AI can use in the broadcast" FontSize="11" Foreground="Gray" Margin="0,0,0,15"/>
+
+                    <TextBlock Text="Available Cameras:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                    <TextBlock Text="Check the cameras you want to EXCLUDE from the broadcast" FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
+
+                    <Border BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="TV Cameras" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                            <CheckBox x:Name="ExcludeTV1" Content="TV1" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludeTV2" Content="TV2" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludeTV3" Content="TV3" Margin="15,2,0,0"/>
+
+                            <TextBlock Text="Chase Cameras" FontWeight="SemiBold" Margin="0,10,0,5"/>
+                            <CheckBox x:Name="ExcludeChase" Content="Chase" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludeFarChase" Content="Far Chase" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludeRearChase" Content="Rear Chase" Margin="15,2,0,0"/>
+
+                            <TextBlock Text="Onboard Cameras" FontWeight="SemiBold" Margin="0,10,0,5"/>
+                            <CheckBox x:Name="ExcludeCockpit" Content="Cockpit" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludeRollBar" Content="Roll Bar" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludeGyro" Content="Gyro" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludeNose" Content="Nose" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludeGearbox" Content="Gearbox" Margin="15,2,0,0"/>
+
+                            <TextBlock Text="Aerial Cameras" FontWeight="SemiBold" Margin="0,10,0,5"/>
+                            <CheckBox x:Name="ExcludeChopper" Content="Chopper" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludeBlimp" Content="Blimp" Margin="15,2,0,0"/>
+
+                            <TextBlock Text="Other Cameras (excluded by default)" FontWeight="SemiBold" Margin="0,10,0,5"/>
+                            <CheckBox x:Name="ExcludeScenic" Content="Scenic" IsChecked="True" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludePitLane" Content="Pit Lane" IsChecked="True" Margin="15,2,0,0"/>
+                            <CheckBox x:Name="ExcludePitLane2" Content="Pit Lane 2" IsChecked="True" Margin="15,2,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                        <Button Content="Select All" Width="80" Click="SelectAllCameras_Click" Margin="0,0,10,0"/>
+                        <Button Content="Deselect All" Width="80" Click="DeselectAllCameras_Click" Margin="0,0,10,0"/>
+                        <Button Content="Reset Defaults" Width="90" Click="ResetCameras_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+
+            <!-- Overlay Settings Tab -->
+            <TabItem Header="Overlays">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Driver Overlays" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                    <TextBlock Text="Show driver information during playback" FontSize="11" Foreground="Gray" Margin="0,0,0,15"/>
+
+                    <CheckBox x:Name="ShowCurrentDriverOverlayCheckBox" Content="Show Current Driver"
+                              IsChecked="True" Margin="0,5,0,0"/>
+                    <TextBlock Text="Shows the driver currently being followed" FontSize="11" Foreground="Gray" Margin="20,2,0,10"/>
+
+                    <CheckBox x:Name="ShowAheadDriverOverlayCheckBox" Content="Show Driver Ahead"
+                              IsChecked="False" Margin="0,5,0,0"/>
+                    <TextBlock Text="Shows the driver in front of the current driver" FontSize="11" Foreground="Gray" Margin="20,2,0,10"/>
+
+                    <CheckBox x:Name="ShowBehindDriverOverlayCheckBox" Content="Show Driver Behind"
+                              IsChecked="False" Margin="0,5,0,0"/>
+                    <TextBlock Text="Shows the driver behind the current driver" FontSize="11" Foreground="Gray" Margin="20,2,0,15"/>
+
+                    <TextBlock Text="Overlay Position" FontWeight="SemiBold" Margin="0,10,0,5"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                        <TextBlock Text="Position:" VerticalAlignment="Center" Width="100"/>
+                        <ComboBox x:Name="OverlayPositionComboBox" Width="120">
+                            <ComboBoxItem Content="Top" Tag="Top"/>
+                            <ComboBoxItem Content="Bottom" Tag="Bottom" IsSelected="True"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBlock Text="Offset from edge:" VerticalAlignment="Center" Width="100"/>
+                        <Slider x:Name="OverlayOffsetSlider" Minimum="20" Maximum="300" Value="100"
+                                Width="150" TickFrequency="20" IsSnapToTickEnabled="True"/>
+                        <TextBlock Text="{Binding Value, ElementName=OverlayOffsetSlider, StringFormat={}{0:0}px}"
+                                   VerticalAlignment="Center" Margin="10,0,0,0" Width="50"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBlock Text="Font size:" VerticalAlignment="Center" Width="100"/>
+                        <Slider x:Name="OverlayFontSizeSlider" Minimum="16" Maximum="48" Value="32"
+                                Width="150" TickFrequency="4" IsSnapToTickEnabled="True"/>
+                        <TextBlock Text="{Binding Value, ElementName=OverlayFontSizeSlider, StringFormat={}{0:0}pt}"
+                                   VerticalAlignment="Center" Margin="10,0,0,0" Width="50"/>
+                    </StackPanel>
+
+                    <Button Content="Reset Defaults" Width="100" HorizontalAlignment="Left" Margin="0,20,0,0"
+                            Click="ResetOverlays_Click"/>
+                </StackPanel>
             </TabItem>
         </TabControl>
 

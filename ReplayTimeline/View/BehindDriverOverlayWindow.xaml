@@ -1,0 +1,25 @@
+<Window x:Class="iRacingReplayDirector.BehindDriverOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Driver Behind"
+        Height="60" Width="300"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="#CC000000"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual">
+    <Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBlock Text="&#x25BC;" Foreground="#FF6B6B" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <TextBlock x:Name="DriverNameText"
+                       Text=""
+                       Foreground="#FF6B6B"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       VerticalAlignment="Center"
+                       Padding="5,5"/>
+        </StackPanel>
+    </Grid>
+</Window>
