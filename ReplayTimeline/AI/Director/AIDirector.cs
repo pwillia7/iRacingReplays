@@ -694,8 +694,18 @@ namespace iRacingReplayDirector.AI.Director
 		private Dictionary<int, int> _driverSelectionCounts = new Dictionary<int, int>();
 		private int _totalSelectionsInPlan = 0;
 
+		// Track position history for momentum detection (driver number -> list of (frame, position))
+		private Dictionary<int, List<PositionRecord>> _positionHistory = new Dictionary<int, List<PositionRecord>>();
+		private const int MomentumWindowFrames = 3600; // 60 seconds at 60fps
+
 		// Random for tie-breaking when scores are close
 		private readonly Random _random = new Random();
+
+		private class PositionRecord
+		{
+			public int Frame { get; set; }
+			public int Position { get; set; }
+		}
 
 		/// <summary>
 		/// Resets driver selection tracking. Call this before applying a new plan.
@@ -705,59 +715,90 @@ namespace iRacingReplayDirector.AI.Director
 			_recentlySelectedDrivers.Clear();
 			_driverSelectionCounts.Clear();
 			_totalSelectionsInPlan = 0;
+			BuildPositionHistoryFromScan();
+		}
+
+		/// <summary>
+		/// Build position history from scan results for momentum tracking.
+		/// </summary>
+		private void BuildPositionHistoryFromScan()
+		{
+			_positionHistory.Clear();
+
+			if (LastScanResult?.Snapshots == null)
+				return;
+
+			foreach (var snapshot in LastScanResult.Snapshots)
+			{
+				if (snapshot?.DriverStates == null)
+					continue;
+
+				foreach (var driver in snapshot.DriverStates)
+				{
+					if (driver == null || driver.Position <= 0)
+						continue;
+
+					if (!_positionHistory.ContainsKey(driver.NumberRaw))
+						_positionHistory[driver.NumberRaw] = new List<PositionRecord>();
+
+					_positionHistory[driver.NumberRaw].Add(new PositionRecord
+					{
+						Frame = snapshot.Frame,
+						Position = driver.Position
+					});
+				}
+			}
 		}
 
 		/// <summary>
 		/// Find the most exciting driver at a given frame using a comprehensive scoring system.
 		///
-		/// SCORING FACTORS (in order of evaluation):
+		/// NEW ALGORITHM DESIGN:
+		/// The key insight is that VARIETY SHOULD YIELD TO ACTION, not override it.
 		///
-		/// 1. EVENT PROXIMITY SCORE (0-60 points)
-		///    - Events happening AT or NEAR this frame give the highest scores
-		///    - Score decays with distance from the event
-		///    - Uses a tighter 8-second window (480 frames) for more targeted selection
+		/// TIERED APPROACH:
+		/// ┌─────────────────────────────────────────────────────────────────┐
+		/// │  TIER 1: CRITICAL ACTION (variety penalty reduced to 20%)       │
+		/// │  - Active incident happening NOW (within 2 seconds)             │
+		/// │  - Overtake completing NOW                                      │
+		/// ├─────────────────────────────────────────────────────────────────┤
+		/// │  TIER 2: HIGH INTEREST (variety penalty reduced to 50%)         │
+		/// │  - Driver currently in active battle                            │
+		/// │  - Driver on a charge (3+ positions gained recently)            │
+		/// │  - Driver in a tight pack (3+ cars nearby)                      │
+		/// ├─────────────────────────────────────────────────────────────────┤
+		/// │  TIER 3: STANDARD INTEREST (full variety penalty)               │
+		/// │  - Position-based scoring                                       │
+		/// │  - Field diversity                                              │
+		/// └─────────────────────────────────────────────────────────────────┘
 		///
-		/// 2. EVENT TYPE WEIGHTS:
-		///    - Incidents: 60 points (most dramatic, must show)
-		///    - Battles: 45 points (exciting close racing)
-		///    - Overtakes: 40 points (position changes are key)
-		///    - Race Start/Finish: 35 points (milestone moments)
-		///    - Pit Stops: 15 points (strategic interest)
+		/// SCORING COMPONENTS:
+		/// 1. Event Proximity Score (0-70) - Incidents, overtakes, battles near this frame
+		/// 2. Momentum Bonus (0-40) - Drivers gaining positions over recent frames
+		/// 3. Active Battle Bonus (0-35) - Drivers currently in detected battles
+		/// 4. Pack Proximity Bonus (0-25) - Drivers running in groups
+		/// 5. Fresh Action Bonus (0-20) - Recent position changes
+		/// 6. Position Score (0-15) - Baseline interest from running position
 		///
-		/// 3. EVENT IMPORTANCE SCORE (0-10 points)
-		///    - Added from event detector's analysis (position importance, duration)
+		/// VARIETY DAMPENING:
+		/// ActionLevel = (EventScore + MomentumBonus + BattleBonus + PackBonus + FreshBonus) / 100
+		/// VarietyDampener = 1.0 - (ActionLevel * 0.8)  // At max action: only 20% penalty
 		///
-		/// 4. POSITION IMPORTANCE (0-15 points)
-		///    - Baseline interest based on running position
-		///    - Only applied when no strong event is happening
-		///    - Leader: 15, P2: 12, P3: 10, Top 5: 8, Top 10: 5, Midfield: 2
-		///
-		/// 5. VARIETY PENALTY (-80 to -10 points)
-		///    - Exponential decay penalty for recently shown drivers
-		///    - Most recent: -80, then -50, -30, -20, -15, -12, -10, -8
-		///    - Strong enough to override event scores in most cases
-		///
-		/// 6. OVEREXPOSURE PENALTY (0 to -40 points)
-		///    - Penalizes drivers shown more than their fair share
-		///    - Fair share = total selections / number of active drivers
-		///    - Each selection over fair share: -10 points
-		///
-		/// 7. FIELD DIVERSITY BONUS (0-25 points)
-		///    - Every 5th selection, boost midfield/back drivers
-		///    - Ensures broadcast shows different parts of the field
-		///
-		/// 8. TIE-BREAKER (random selection among top scorers within 5%)
-		///    - When multiple drivers score similarly, randomly pick one
-		///    - Adds natural variety to the broadcast
+		/// FINAL FORMULA:
+		/// FinalScore = ActionScore + (PositionScore * (1 - ActionLevel * 0.5))
+		///            - (VarietyPenalty * VarietyDampener) - OverexposurePenalty + DiversityBonus
 		/// </summary>
 		private Driver FindMostExcitingDriver(int frame)
 		{
 			var activeDrivers = _viewModel.Drivers
-				.Where(d => d != null && d.TrackSurface != TrackSurfaces.NotInWorld && d.NumberRaw != 0) // Exclude pace car (NumberRaw == 0)
+				.Where(d => d != null && d.TrackSurface != TrackSurfaces.NotInWorld && d.NumberRaw != 0)
 				.ToList();
 
 			if (!activeDrivers.Any())
 				return _viewModel.Drivers.FirstOrDefault();
+
+			// Build driver snapshots for pack proximity calculation
+			var driverSnapshots = GetDriverSnapshotsAtFrame(frame, activeDrivers);
 
 			// Calculate scores for all active drivers
 			var driverScores = new Dictionary<int, DriverScore>();
@@ -768,73 +809,135 @@ namespace iRacingReplayDirector.AI.Director
 				{
 					DriverNumber = driver.NumberRaw,
 					Driver = driver,
-					BaseScore = 0,
-					EventScore = 0,
-					PositionScore = 0,
-					VarietyPenalty = 0,
 					Breakdown = new List<string>()
 				};
 			}
 
-			// 1. Score based on events (highest priority)
-			bool hasStrongEvent = false;
-			if (LastScanResult?.Events != null)
+			// === PHASE 1: Calculate all action-based scores ===
+
+			// 1. Event proximity scoring (incidents, overtakes near this frame)
+			ScoreDriversFromEvents(frame, driverScores);
+
+			// 2. Active battle bonus (drivers currently in ongoing battles)
+			ApplyActiveBattleBonus(frame, driverScores);
+
+			// 3. Momentum bonus (drivers gaining positions)
+			ApplyMomentumBonus(frame, driverScores);
+
+			// 4. Pack proximity bonus (drivers in groups)
+			ApplyPackProximityBonus(driverSnapshots, driverScores);
+
+			// 5. Fresh action bonus (recent position changes)
+			ApplyFreshActionBonus(frame, driverScores);
+
+			// === PHASE 2: Calculate action level for variety dampening ===
+
+			foreach (var score in driverScores.Values)
 			{
-				hasStrongEvent = ScoreDriversFromEvents(frame, driverScores);
+				// Sum all action-related scores
+				score.ActionScore = score.EventScore + score.MomentumBonus +
+				                    score.BattleBonus + score.PackBonus + score.FreshActionBonus;
+
+				// Calculate action level (0.0 to 1.0)
+				score.ActionLevel = Math.Min(1.0f, score.ActionScore / 100.0f);
 			}
 
-			// 2. Add position-based scoring (reduced weight when events are happening)
+			// === PHASE 3: Apply position scoring (reduced during high action) ===
+
 			foreach (var driver in activeDrivers)
 			{
 				var score = driverScores[driver.NumberRaw];
 				int positionScore = CalculatePositionScore(driver.Position);
 
-				// Reduce position score weight when a strong event is happening
-				// This ensures event participants get priority over position-holders
-				if (hasStrongEvent && score.EventScore < 20)
-				{
-					positionScore = positionScore / 3; // Heavily reduce for non-event drivers
-				}
+				// Reduce position weight when driver has high action (action takes precedence)
+				float positionMultiplier = 1.0f - (score.ActionLevel * 0.5f);
+				score.PositionScore = (int)(positionScore * positionMultiplier);
+				score.BaseScore = score.ActionScore + score.PositionScore;
 
-				score.PositionScore = positionScore;
-				score.BaseScore += positionScore;
-				if (positionScore > 0)
-					score.Breakdown.Add($"Position P{driver.Position}: +{positionScore}");
+				if (score.PositionScore > 0)
+					score.Breakdown.Add($"Position P{driver.Position}: +{score.PositionScore} (x{positionMultiplier:F2})");
 			}
 
-			// 3. Apply variety penalty for recently shown drivers (strong penalty)
-			ApplyVarietyPenalties(driverScores);
+			// === PHASE 4: Apply variety penalty with dampening ===
 
-			// 4. Apply overexposure penalty for drivers shown too often
+			ApplyVarietyPenaltiesWithDampening(driverScores);
+
+			// === PHASE 5: Apply overexposure penalty ===
+
 			ApplyOverexposurePenalty(driverScores, activeDrivers.Count);
 
-			// 5. Apply field diversity bonus (every 5th selection, boost non-front-runners)
+			// === PHASE 6: Apply field diversity bonus ===
+
 			ApplyFieldDiversityBonus(driverScores, activeDrivers);
 
-			// 6. Select from top scorers with tie-breaking
+			// === PHASE 7: Select best driver with tie-breaking ===
+
 			var bestDriver = SelectWithTieBreaking(driverScores);
 
 			if (bestDriver?.Driver != null)
 			{
-				// Update tracking
 				UpdateRecentlySelected(bestDriver.DriverNumber);
 				UpdateSelectionCount(bestDriver.DriverNumber);
 				return bestDriver.Driver;
 			}
 
-			// Ultimate fallback - rotate through positions
 			return GetFallbackDriver(activeDrivers);
 		}
 
-		private bool ScoreDriversFromEvents(int frame, Dictionary<int, DriverScore> driverScores)
+		/// <summary>
+		/// Get driver position/distance data at or near the specified frame from scan snapshots.
+		/// </summary>
+		private Dictionary<int, DriverSnapshot> GetDriverSnapshotsAtFrame(int frame, List<Driver> activeDrivers)
 		{
-			// Tighter window: 8 seconds each direction (480 frames at 60fps)
+			var result = new Dictionary<int, DriverSnapshot>();
+
+			if (LastScanResult?.Snapshots == null || !LastScanResult.Snapshots.Any())
+			{
+				// Fallback: create from current driver state
+				foreach (var driver in activeDrivers)
+				{
+					result[driver.NumberRaw] = new DriverSnapshot
+					{
+						NumberRaw = driver.NumberRaw,
+						Position = driver.Position,
+						LapDistance = driver.LapDistance,
+						Lap = driver.Lap,
+						TrackSurface = driver.TrackSurface
+					};
+				}
+				return result;
+			}
+
+			// Find closest snapshot to this frame
+			var closestSnapshot = LastScanResult.Snapshots
+				.OrderBy(s => Math.Abs(s.Frame - frame))
+				.FirstOrDefault();
+
+			if (closestSnapshot?.DriverStates != null)
+			{
+				foreach (var ds in closestSnapshot.DriverStates)
+				{
+					if (ds != null)
+						result[ds.NumberRaw] = ds;
+				}
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Score drivers based on proximity to detected events.
+		/// </summary>
+		private void ScoreDriversFromEvents(int frame, Dictionary<int, DriverScore> driverScores)
+		{
+			if (LastScanResult?.Events == null)
+				return;
+
+			// Window: 8 seconds each direction (480 frames at 60fps)
 			int frameWindow = 480;
-			bool hasStrongEvent = false;
 
 			var relevantEvents = LastScanResult.Events
 				.Where(e => {
-					// Event is near this frame, OR this frame is during the event duration
 					int eventEndFrame = e.Frame + e.DurationFrames;
 					return (frame >= e.Frame - frameWindow && frame <= e.Frame + frameWindow) ||
 					       (frame >= e.Frame && frame <= eventEndFrame);
@@ -843,20 +946,18 @@ namespace iRacingReplayDirector.AI.Director
 
 			foreach (var evt in relevantEvents)
 			{
-				// Calculate proximity score with exponential decay
 				int frameDistance = Math.Abs(evt.Frame - frame);
 				bool isDuringEvent = frame >= evt.Frame && frame <= evt.Frame + evt.DurationFrames;
 
+				// Calculate proximity multiplier with urgency boost for "right now" events
 				float proximityMultiplier;
-				if (isDuringEvent)
+				if (isDuringEvent || frameDistance <= 60) // Within 1 second = critical
 				{
-					proximityMultiplier = 1.0f; // Full score during event
-					hasStrongEvent = true;
+					proximityMultiplier = 1.2f; // Boost for happening RIGHT NOW
 				}
 				else if (frameDistance <= 120) // Within 2 seconds
 				{
-					proximityMultiplier = 0.9f;
-					hasStrongEvent = true;
+					proximityMultiplier = 1.0f;
 				}
 				else if (frameDistance <= 300) // Within 5 seconds
 				{
@@ -864,40 +965,262 @@ namespace iRacingReplayDirector.AI.Director
 				}
 				else
 				{
-					// Exponential decay for further distances
 					proximityMultiplier = Math.Max(0.1f, (float)Math.Exp(-frameDistance / 300.0));
 				}
 
-				// Base score by event type
 				int eventTypeScore = GetEventTypeScore(evt.EventType);
-
-				// Calculate final event score
 				int eventScore = (int)(eventTypeScore * proximityMultiplier);
-
-				// Add event's importance score (scaled by proximity)
 				eventScore += (int)(evt.ImportanceScore * proximityMultiplier);
 
 				// Apply to primary driver
 				if (driverScores.ContainsKey(evt.PrimaryDriverNumber))
 				{
-					driverScores[evt.PrimaryDriverNumber].BaseScore += eventScore;
 					driverScores[evt.PrimaryDriverNumber].EventScore += eventScore;
 					driverScores[evt.PrimaryDriverNumber].Breakdown.Add(
 						$"{evt.EventType} at frame {evt.Frame}: +{eventScore}");
 				}
 
-				// Apply to secondary driver (70% for battles/overtakes where both drivers matter)
+				// Apply to secondary driver (80% for battles/overtakes)
 				if (evt.SecondaryDriverNumber.HasValue && driverScores.ContainsKey(evt.SecondaryDriverNumber.Value))
 				{
-					int secondaryScore = (int)(eventScore * 0.7f);
-					driverScores[evt.SecondaryDriverNumber.Value].BaseScore += secondaryScore;
+					int secondaryScore = (int)(eventScore * 0.8f);
 					driverScores[evt.SecondaryDriverNumber.Value].EventScore += secondaryScore;
 					driverScores[evt.SecondaryDriverNumber.Value].Breakdown.Add(
-						$"{evt.EventType} (secondary) at frame {evt.Frame}: +{secondaryScore}");
+						$"{evt.EventType} (secondary): +{secondaryScore}");
 				}
 			}
+		}
 
-			return hasStrongEvent;
+		/// <summary>
+		/// Apply bonus to drivers currently in active battles (during battle duration).
+		/// Keeps camera on battles until they're resolved.
+		/// </summary>
+		private void ApplyActiveBattleBonus(int frame, Dictionary<int, DriverScore> driverScores)
+		{
+			if (LastScanResult?.Events == null)
+				return;
+
+			var activeBattles = LastScanResult.Events
+				.Where(e => e.EventType == RaceEventType.Battle &&
+				           frame >= e.Frame && frame <= e.Frame + e.DurationFrames)
+				.ToList();
+
+			foreach (var battle in activeBattles)
+			{
+				// Calculate how far into the battle we are (0.0 to 1.0)
+				float battleProgress = (float)(frame - battle.Frame) / Math.Max(1, battle.DurationFrames);
+
+				// Bonus is higher in the middle/end of battle (climax moments)
+				int bonus;
+				if (battleProgress > 0.7f) // Last 30% of battle - climax
+					bonus = 35;
+				else if (battleProgress > 0.4f) // Middle of battle
+					bonus = 30;
+				else // Early battle
+					bonus = 25;
+
+				// Higher position battles get extra bonus
+				if (battle.Position <= 3)
+					bonus += 10;
+				else if (battle.Position <= 5)
+					bonus += 5;
+
+				// Apply to both drivers in the battle
+				if (driverScores.ContainsKey(battle.PrimaryDriverNumber))
+				{
+					driverScores[battle.PrimaryDriverNumber].BattleBonus += bonus;
+					driverScores[battle.PrimaryDriverNumber].Breakdown.Add(
+						$"Active battle for P{battle.Position}: +{bonus}");
+				}
+
+				if (battle.SecondaryDriverNumber.HasValue && driverScores.ContainsKey(battle.SecondaryDriverNumber.Value))
+				{
+					driverScores[battle.SecondaryDriverNumber.Value].BattleBonus += bonus;
+					driverScores[battle.SecondaryDriverNumber.Value].Breakdown.Add(
+						$"Active battle for P{battle.Position}: +{bonus}");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Apply momentum bonus for drivers gaining multiple positions over recent frames.
+		/// Recognizes "drivers on a charge" who are making moves through the field.
+		/// </summary>
+		private void ApplyMomentumBonus(int frame, Dictionary<int, DriverScore> driverScores)
+		{
+			foreach (var kvp in driverScores)
+			{
+				int driverNum = kvp.Key;
+				var score = kvp.Value;
+
+				if (!_positionHistory.ContainsKey(driverNum))
+					continue;
+
+				var history = _positionHistory[driverNum];
+				if (history.Count < 2)
+					continue;
+
+				// Find position at start of momentum window
+				int windowStart = frame - MomentumWindowFrames;
+				var startRecord = history
+					.Where(r => r.Frame <= windowStart)
+					.OrderByDescending(r => r.Frame)
+					.FirstOrDefault();
+
+				var currentRecord = history
+					.Where(r => r.Frame <= frame)
+					.OrderByDescending(r => r.Frame)
+					.FirstOrDefault();
+
+				if (startRecord == null || currentRecord == null)
+					continue;
+
+				int positionsGained = startRecord.Position - currentRecord.Position;
+
+				if (positionsGained >= 2)
+				{
+					// Bonus scales with positions gained
+					// 2 positions: 15, 3: 25, 4: 32, 5+: 40
+					int bonus;
+					if (positionsGained >= 5)
+						bonus = 40;
+					else if (positionsGained >= 4)
+						bonus = 32;
+					else if (positionsGained >= 3)
+						bonus = 25;
+					else
+						bonus = 15;
+
+					// Extra bonus for gaining into top positions
+					if (currentRecord.Position <= 3 && startRecord.Position > 3)
+						bonus += 10;
+					else if (currentRecord.Position <= 5 && startRecord.Position > 5)
+						bonus += 5;
+
+					score.MomentumBonus = bonus;
+					score.Breakdown.Add($"Momentum (+{positionsGained} positions): +{bonus}");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Apply bonus for drivers running in packs (multiple cars nearby).
+		/// Pack racing is more exciting than isolated drivers.
+		/// </summary>
+		private void ApplyPackProximityBonus(Dictionary<int, DriverSnapshot> snapshots, Dictionary<int, DriverScore> driverScores)
+		{
+			const float PackThreshold = 0.03f; // 3% of lap distance = in pack
+
+			foreach (var kvp in driverScores)
+			{
+				int driverNum = kvp.Key;
+				var score = kvp.Value;
+
+				if (!snapshots.ContainsKey(driverNum))
+					continue;
+
+				var thisDriver = snapshots[driverNum];
+				if (thisDriver.TrackSurface != TrackSurfaces.OnTrack)
+					continue;
+
+				// Count cars within pack threshold
+				int carsNearby = 0;
+				foreach (var other in snapshots.Values)
+				{
+					if (other.NumberRaw == driverNum)
+						continue;
+					if (other.TrackSurface != TrackSurfaces.OnTrack)
+						continue;
+
+					float gap = CalculateLapDistanceGap(thisDriver, other);
+					if (gap <= PackThreshold)
+						carsNearby++;
+				}
+
+				if (carsNearby >= 1)
+				{
+					// Bonus scales with pack size
+					int bonus;
+					if (carsNearby >= 4)
+						bonus = 25; // Big pack
+					else if (carsNearby >= 3)
+						bonus = 20;
+					else if (carsNearby >= 2)
+						bonus = 15;
+					else
+						bonus = 10; // At least one car nearby
+
+					score.PackBonus = bonus;
+					score.Breakdown.Add($"Pack ({carsNearby + 1} cars): +{bonus}");
+				}
+			}
+		}
+
+		private float CalculateLapDistanceGap(DriverSnapshot d1, DriverSnapshot d2)
+		{
+			if (d1.Lap == d2.Lap)
+			{
+				return Math.Abs(d1.LapDistance - d2.LapDistance);
+			}
+			// Different laps - they're not really in a pack
+			return 1.0f;
+		}
+
+		/// <summary>
+		/// Apply bonus for recent position changes.
+		/// Fresh action is more interesting than stale positions.
+		/// </summary>
+		private void ApplyFreshActionBonus(int frame, Dictionary<int, DriverScore> driverScores)
+		{
+			if (LastScanResult?.Events == null)
+				return;
+
+			// Look at recent overtakes involving each driver
+			int recentWindow = 1200; // 20 seconds
+
+			var recentOvertakes = LastScanResult.Events
+				.Where(e => e.EventType == RaceEventType.Overtake &&
+				           frame >= e.Frame && frame <= e.Frame + recentWindow)
+				.ToList();
+
+			foreach (var overtake in recentOvertakes)
+			{
+				int frameSince = frame - overtake.Frame;
+
+				// Bonus decays over time
+				int bonus;
+				if (frameSince <= 300) // Last 5 seconds
+					bonus = 20;
+				else if (frameSince <= 600) // Last 10 seconds
+					bonus = 15;
+				else if (frameSince <= 900) // Last 15 seconds
+					bonus = 10;
+				else
+					bonus = 5;
+
+				// Apply to both drivers involved
+				if (driverScores.ContainsKey(overtake.PrimaryDriverNumber))
+				{
+					var score = driverScores[overtake.PrimaryDriverNumber];
+					if (bonus > score.FreshActionBonus) // Don't stack, take highest
+					{
+						score.FreshActionBonus = bonus;
+						score.Breakdown.Add($"Fresh overtake ({frameSince / 60}s ago): +{bonus}");
+					}
+				}
+
+				if (overtake.SecondaryDriverNumber.HasValue &&
+				    driverScores.ContainsKey(overtake.SecondaryDriverNumber.Value))
+				{
+					var score = driverScores[overtake.SecondaryDriverNumber.Value];
+					int secondaryBonus = (int)(bonus * 0.7f);
+					if (secondaryBonus > score.FreshActionBonus)
+					{
+						score.FreshActionBonus = secondaryBonus;
+						score.Breakdown.Add($"Fresh action (lost position): +{secondaryBonus}");
+					}
+				}
+			}
 		}
 
 		private int GetEventTypeScore(RaceEventType eventType)
@@ -905,16 +1228,16 @@ namespace iRacingReplayDirector.AI.Director
 			switch (eventType)
 			{
 				case RaceEventType.Incident:
-					return 60; // Incidents are most dramatic - must show
+					return 70; // Boosted - incidents must be shown
 				case RaceEventType.Battle:
-					return 45; // Close racing is exciting
+					return 45;
 				case RaceEventType.Overtake:
-					return 40; // Position changes are important
+					return 50; // Boosted - overtakes are key
 				case RaceEventType.RaceStart:
 				case RaceEventType.RaceFinish:
-					return 35; // Race start/finish are key moments
+					return 40;
 				case RaceEventType.PitStop:
-					return 15; // Pit stops can be strategic
+					return 15;
 				default:
 					return 5;
 			}
@@ -922,31 +1245,41 @@ namespace iRacingReplayDirector.AI.Director
 
 		private int CalculatePositionScore(int position)
 		{
-			// Reduced baseline scores - events should dominate when they happen
-			if (position == 1) return 15;      // Leader
-			if (position == 2) return 12;      // Fight for lead
-			if (position == 3) return 10;      // Podium battle
-			if (position <= 5) return 8;       // Top 5
-			if (position <= 10) return 5;      // Top 10
-			if (position <= 15) return 2;      // Midfield
-			return 1;                          // Back of field
+			if (position == 1) return 15;
+			if (position == 2) return 12;
+			if (position == 3) return 10;
+			if (position <= 5) return 8;
+			if (position <= 10) return 5;
+			if (position <= 15) return 2;
+			return 1;
 		}
 
-		private void ApplyVarietyPenalties(Dictionary<int, DriverScore> driverScores)
+		/// <summary>
+		/// Apply variety penalties with dampening based on action level.
+		/// KEY CHANGE: High action reduces variety penalty so we don't miss exciting moments.
+		/// </summary>
+		private void ApplyVarietyPenaltiesWithDampening(Dictionary<int, DriverScore> driverScores)
 		{
-			// Exponential penalty - very strong for most recent, decays for older selections
-			int[] penalties = { 80, 50, 30, 20, 15, 12, 10, 8 };
+			int[] basePenalties = { 80, 50, 30, 20, 15, 12, 10, 8 };
 
-			for (int i = 0; i < _recentlySelectedDrivers.Count && i < penalties.Length; i++)
+			for (int i = 0; i < _recentlySelectedDrivers.Count && i < basePenalties.Length; i++)
 			{
 				int driverNum = _recentlySelectedDrivers[i];
-				if (driverScores.ContainsKey(driverNum))
-				{
-					int penalty = penalties[i];
-					driverScores[driverNum].BaseScore -= penalty;
-					driverScores[driverNum].VarietyPenalty = penalty;
-					driverScores[driverNum].Breakdown.Add($"Recently shown (#{i + 1}): -{penalty}");
-				}
+				if (!driverScores.ContainsKey(driverNum))
+					continue;
+
+				var score = driverScores[driverNum];
+				int basePenalty = basePenalties[i];
+
+				// Dampen penalty based on action level
+				// At 0 action: full penalty (dampener = 1.0)
+				// At max action: only 20% penalty (dampener = 0.2)
+				float dampener = 1.0f - (score.ActionLevel * 0.8f);
+				int adjustedPenalty = (int)(basePenalty * dampener);
+
+				score.VarietyPenalty = adjustedPenalty;
+				score.BaseScore -= adjustedPenalty;
+				score.Breakdown.Add($"Variety penalty (#{i + 1}): -{adjustedPenalty} (dampened from {basePenalty})");
 			}
 		}
 
@@ -955,7 +1288,6 @@ namespace iRacingReplayDirector.AI.Director
 			if (_totalSelectionsInPlan < 3 || activeDriverCount == 0)
 				return;
 
-			// Calculate fair share of screen time
 			float fairShare = _totalSelectionsInPlan / (float)activeDriverCount;
 
 			foreach (var kvp in _driverSelectionCounts)
@@ -965,8 +1297,8 @@ namespace iRacingReplayDirector.AI.Director
 					int overExposure = (int)(kvp.Value - fairShare);
 					if (overExposure > 0)
 					{
-						int penalty = overExposure * 10; // 10 points per extra selection
-						penalty = Math.Min(penalty, 40); // Cap at 40
+						int penalty = overExposure * 10;
+						penalty = Math.Min(penalty, 40);
 						driverScores[kvp.Key].BaseScore -= penalty;
 						driverScores[kvp.Key].Breakdown.Add($"Overexposure ({kvp.Value} selections): -{penalty}");
 					}
@@ -976,8 +1308,7 @@ namespace iRacingReplayDirector.AI.Director
 
 		private void ApplyFieldDiversityBonus(Dictionary<int, DriverScore> driverScores, List<Driver> activeDrivers)
 		{
-			// Every 5th selection, give a bonus to midfield/back drivers
-			// This ensures the broadcast shows different parts of the field
+			// Every 5th selection, boost midfield/back drivers
 			if (_totalSelectionsInPlan > 0 && _totalSelectionsInPlan % 5 == 0)
 			{
 				foreach (var driver in activeDrivers)
@@ -985,16 +1316,15 @@ namespace iRacingReplayDirector.AI.Director
 					if (!driverScores.ContainsKey(driver.NumberRaw))
 						continue;
 
-					// Bonus for drivers outside top 10 who haven't been shown much
 					if (driver.Position > 10)
 					{
 						int selectCount = _driverSelectionCounts.ContainsKey(driver.NumberRaw)
-						? _driverSelectionCounts[driver.NumberRaw] : 0;
+							? _driverSelectionCounts[driver.NumberRaw] : 0;
 						if (selectCount <= 1)
 						{
 							int bonus = driver.Position > 15 ? 25 : 20;
 							driverScores[driver.NumberRaw].BaseScore += bonus;
-							driverScores[driver.NumberRaw].Breakdown.Add($"Field diversity bonus: +{bonus}");
+							driverScores[driver.NumberRaw].Breakdown.Add($"Field diversity: +{bonus}");
 						}
 					}
 				}
@@ -1006,20 +1336,18 @@ namespace iRacingReplayDirector.AI.Director
 			if (!driverScores.Any())
 				return null;
 
-			// Sort by score descending
 			var sortedScores = driverScores.Values
 				.OrderByDescending(s => s.BaseScore)
 				.ToList();
 
 			var topScore = sortedScores.First();
 
-			// Find all drivers within 5% of top score (or within 5 points if scores are low)
-			int threshold = Math.Max(5, (int)(topScore.BaseScore * 0.05f));
+			// Find drivers within 5% or 5 points of top score
+			int threshold = Math.Max(5, (int)(Math.Abs(topScore.BaseScore) * 0.05f));
 			var tiedDrivers = sortedScores
 				.Where(s => topScore.BaseScore - s.BaseScore <= threshold)
 				.ToList();
 
-			// Randomly select from tied drivers
 			if (tiedDrivers.Count > 1)
 			{
 				return tiedDrivers[_random.Next(tiedDrivers.Count)];
@@ -1030,13 +1358,9 @@ namespace iRacingReplayDirector.AI.Director
 
 		private void UpdateRecentlySelected(int driverNumber)
 		{
-			// Remove if already in list
 			_recentlySelectedDrivers.Remove(driverNumber);
-
-			// Add to front
 			_recentlySelectedDrivers.Insert(0, driverNumber);
 
-			// Trim to max size
 			while (_recentlySelectedDrivers.Count > MaxRecentDrivers)
 			{
 				_recentlySelectedDrivers.RemoveAt(_recentlySelectedDrivers.Count - 1);
@@ -1054,13 +1378,11 @@ namespace iRacingReplayDirector.AI.Director
 
 		private Driver GetFallbackDriver(List<Driver> activeDrivers)
 		{
-			// Fallback: cycle through positions, avoiding recently selected (and pace car)
 			var orderedDrivers = activeDrivers
-				.Where(d => d.Position > 0 && d.NumberRaw != 0) // Exclude pace car
+				.Where(d => d.Position > 0 && d.NumberRaw != 0)
 				.OrderBy(d => d.Position)
 				.ToList();
 
-			// Find a driver not recently shown
 			var notRecent = orderedDrivers
 				.FirstOrDefault(d => !_recentlySelectedDrivers.Contains(d.NumberRaw));
 
@@ -1071,7 +1393,6 @@ namespace iRacingReplayDirector.AI.Director
 				return notRecent;
 			}
 
-			// If all were recently shown, pick from the back of the field for variety
 			var backRunner = orderedDrivers.LastOrDefault();
 			if (backRunner != null)
 			{
@@ -1083,15 +1404,32 @@ namespace iRacingReplayDirector.AI.Director
 			return activeDrivers.FirstOrDefault(d => d.NumberRaw != 0);
 		}
 
-		// Helper class to track driver scoring
+		/// <summary>
+		/// Enhanced driver score tracking with all new scoring components.
+		/// </summary>
 		private class DriverScore
 		{
 			public int DriverNumber { get; set; }
 			public Driver Driver { get; set; }
-			public int BaseScore { get; set; }
+
+			// Action-based scores (contribute to ActionLevel)
 			public int EventScore { get; set; }
+			public int MomentumBonus { get; set; }
+			public int BattleBonus { get; set; }
+			public int PackBonus { get; set; }
+			public int FreshActionBonus { get; set; }
+
+			// Calculated from action scores
+			public int ActionScore { get; set; }
+			public float ActionLevel { get; set; } // 0.0 to 1.0
+
+			// Standard scores
 			public int PositionScore { get; set; }
 			public int VarietyPenalty { get; set; }
+
+			// Final combined score
+			public int BaseScore { get; set; }
+
 			public List<string> Breakdown { get; set; }
 		}
 
