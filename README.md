@@ -19,35 +19,156 @@ Create your own replay edits without any required editing knowledge. Create 'nod
 
 The AI Director feature automatically analyzes your replay and generates professional-style camera sequences using AI/LLM technology.
 
+### Quick Start
+
+1. Open a replay in iRacing
+2. Launch Sequence Director
+3. Go to **AI Director > Scan Replay** (set your frame range)
+4. Click **AI Director > Generate Camera Plan**
+5. Click **AI Director > Apply AI Plan**
+6. Play or record your sequence!
+
 ### How It Works
 
-1. **Scan Replay** - The AI Director scans through your replay detecting key events:
-   - **Incidents** - Off-track excursions, spins, contact
-   - **Battles** - Close racing between drivers (gap < 2% of lap)
-   - **Overtakes** - Position changes between drivers
+#### Step 1: Scan Replay
+The AI Director scans through your replay detecting key events:
+- **Incidents** - Off-track excursions, spins, contact
+- **Battles** - Close racing between drivers (gap < 2% of lap)
+- **Overtakes** - Position changes between drivers
 
-2. **Generate Camera Plan** - Send the detected events to an LLM (OpenAI or local model) which creates a broadcast-style camera sequence with varied angles and pacing.
+#### Step 2: Generate Camera Plan
+Sends the detected events to an LLM (OpenAI or local model) which creates a broadcast-style camera sequence with:
+- Varied camera angles (TV, Chase, Cockpit, Helicopter, etc.)
+- Professional pacing (8-15 second cuts)
+- Coverage of key moments
 
-3. **Apply Plan** - The generated camera switches are added to your node list, ready for playback or recording.
+#### Step 3: Apply Plan
+The AI selects which driver to follow for each camera switch using the Driver Selection Algorithm, then adds nodes to your list.
 
-### Driver Selection System
+**Tip:** You can re-apply the plan with different driver selection settings without rescanning or regenerating!
 
-The AI Director uses a sophisticated scoring system to choose which driver to focus on at any moment:
+---
 
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Event Proximity | High (60 pts) | Drivers involved in nearby events (incidents, battles, overtakes) |
-| Event Type | Varies | Incidents (60), Battles (45), Overtakes (40), Race Start/Finish (35) |
-| Position | Medium (15 pts) | Race position importance (leader gets more coverage) |
-| Variety Penalty | Strong (-80 pts) | Recently shown drivers are penalized to ensure variety |
-| Overexposure Penalty | Medium (-40 pts) | Drivers shown too often get reduced priority |
-| Field Diversity | Bonus (+25 pts) | Periodically boosts midfield/back drivers for coverage |
+### AI Director Settings
 
-### LLM Configuration
+Access via **AI Director > Settings** menu. Three tabs are available:
 
-Access AI Director settings via the menu to configure:
-- **OpenAI** - Use GPT models with your API key
-- **Local Models** - Use Ollama, LM Studio, or any OpenAI-compatible endpoint
+#### LLM Provider Tab
+
+Configure your AI model:
+
+**OpenAI (Recommended)**
+- Enter your OpenAI API key
+- Select model: `gpt-4o` (best quality), `gpt-4o-mini` (faster/cheaper), `gpt-3.5-turbo`
+- Click "Test Connection" to verify
+
+**Local Models**
+- Works with Ollama, LM Studio, or any OpenAI-compatible API
+- Default endpoint: `http://localhost:11434/v1/chat/completions`
+- Enter your model name (e.g., `llama3`, `mistral`)
+
+#### Event Detection Tab
+
+Control what events are detected during scanning:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Detect Incidents | ✓ | Off-track, spins, contact |
+| Detect Overtakes | ✓ | Position changes |
+| Detect Battles | ✓ | Close racing (cars within gap threshold) |
+| Scan Interval | 60 frames | Lower = more detail but slower scan |
+
+#### Driver Selection Tab
+
+**This is where you tune how drivers are chosen for each camera cut.**
+
+##### Event Weights (0-100)
+How much each event type influences driver selection:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Incidents | 50 | Crashes, spins, off-tracks |
+| Overtakes | 40 | Position changes |
+| Battles | 35 | Close racing |
+
+##### Bonus Weights
+Additional factors that boost driver priority:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Momentum | 25 | Drivers gaining multiple positions ("on a charge") |
+| Pack Racing | 15 | Drivers in groups of 3+ cars |
+| Fresh Action | 15 | Recent position changes (decays over 20 sec) |
+| Position | 15 | Baseline interest from race position |
+
+##### Variety Control
+**These are the most important settings for balancing action vs. variety:**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Variety Strength | 60 | Penalty for recently-shown drivers (higher = more switching) |
+| Action Override | 40% | How much exciting action reduces variety penalty |
+| Min Cuts/Minute | 4 | Minimum driver switches per minute |
+
+---
+
+### Tuning Guide
+
+**Problem: Same few drivers shown repeatedly**
+- Increase **Variety Strength** (try 70-80)
+- Decrease **Action Override** (try 20-30%)
+- The variety penalty will apply more strongly
+
+**Problem: Missing exciting action**
+- Increase **Event Weights** (Incidents, Overtakes, Battles)
+- Increase **Action Override** (try 50-60%)
+- Action will override variety penalty more
+
+**Problem: Too much focus on race leader**
+- Decrease **Position** weight (try 5-10)
+- Increase **Pack Racing** weight (shows mid-pack action)
+
+**Problem: Cuts feel random/unfocused**
+- Increase **Event Weights** to prioritize action
+- Decrease **Min Cuts/Minute** for longer shots
+
+**Recommended starting points:**
+
+| Style | Variety | Action Override | Event Weights |
+|-------|---------|-----------------|---------------|
+| Broadcast (balanced) | 60 | 40% | 50/40/35 |
+| Action-focused | 40 | 60% | 60/50/45 |
+| Maximum variety | 80 | 20% | 40/35/30 |
+
+---
+
+### How Driver Selection Works
+
+When applying a camera plan, the AI scores each driver at each camera switch point:
+
+```
+Final Score = Action Score + Position Score - Variety Penalty - Overexposure Penalty + Bonuses
+```
+
+**Action Score** = Events + Momentum + Battle + Pack + Fresh Action
+
+**Variety Dampening**: When a driver has high action, their variety penalty is reduced (but never below 40% of the base penalty). This ensures exciting moments are shown while still maintaining variety.
+
+**The driver with the highest final score is selected for each camera cut.**
+
+---
+
+### Tips & Best Practices
+
+1. **Start with defaults** - They're tuned for balanced broadcast-style coverage
+
+2. **Re-apply to test settings** - After changing driver selection weights, just click "Apply AI Plan" again (no rescan needed)
+
+3. **Longer replays** - The system automatically chunks replays >10 minutes into segments for better LLM handling
+
+4. **Local models** - For privacy or cost savings, use Ollama with `llama3` or similar. Quality may vary.
+
+5. **Camera variety** - The LLM handles camera selection; driver selection settings don't affect camera angles
 
 ## Installation
 
