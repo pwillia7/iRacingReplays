@@ -19,7 +19,7 @@ namespace iRacingReplayDirector.AI.Director
 			set { _openAIApiKey = value; OnPropertyChanged("OpenAIApiKey"); }
 		}
 
-		private string _openAIModel = "gpt-3.5-turbo";
+		private string _openAIModel = "gpt-4o";
 		public string OpenAIModel
 		{
 			get { return _openAIModel; }

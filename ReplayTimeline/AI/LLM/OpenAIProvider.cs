@@ -18,6 +18,9 @@ namespace iRacingReplayDirector.AI.LLM
 
 		protected override string Endpoint => OPENAI_ENDPOINT;
 
+		// OpenAI API supports response_format for JSON mode (gpt-4o, gpt-3.5-turbo-1106+)
+		protected override bool SupportsJsonResponseFormat => true;
+
 		protected override string GetAuthorizationHeader()
 		{
 			return $"Bearer {ApiKey}";

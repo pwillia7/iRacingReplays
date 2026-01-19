@@ -31,6 +31,12 @@ namespace iRacingReplayDirector.AI.LLM
 
 		protected abstract string GetAuthorizationHeader();
 
+		/// <summary>
+		/// Whether this provider supports the response_format parameter for JSON output.
+		/// Override in derived classes to enable for compatible APIs.
+		/// </summary>
+		protected virtual bool SupportsJsonResponseFormat => false;
+
 		public async Task<CameraPlan> GenerateCameraPlanAsync(RaceEventSummary summary, CancellationToken cancellationToken = default)
 		{
 			if (!IsConfigured)
@@ -39,19 +45,26 @@ namespace iRacingReplayDirector.AI.LLM
 			string systemPrompt = PromptTemplates.SystemPrompt;
 			string userPrompt = PromptTemplates.BuildUserPrompt(summary);
 
-			var requestBody = new
+			// Build request body dynamically to support optional parameters
+			var requestBody = new JObject
 			{
-				model = ModelName,
-				messages = new[]
+				["model"] = ModelName,
+				["messages"] = new JArray
 				{
-					new { role = "system", content = systemPrompt },
-					new { role = "user", content = userPrompt }
+					new JObject { ["role"] = "system", ["content"] = systemPrompt },
+					new JObject { ["role"] = "user", ["content"] = userPrompt }
 				},
-				temperature = 0.7,
-				max_tokens = 8192 // Increased to handle more camera actions for longer segments
+				["temperature"] = 0.7,
+				["max_tokens"] = 4096 // Safe limit that works with gpt-3.5-turbo and other models
 			};
 
-			string jsonBody = JsonConvert.SerializeObject(requestBody);
+			// Add response_format for providers that support it (ensures clean JSON output)
+			if (SupportsJsonResponseFormat)
+			{
+				requestBody["response_format"] = new JObject { ["type"] = "json_object" };
+			}
+
+			string jsonBody = requestBody.ToString(Formatting.None);
 			var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
 			using (var request = new HttpRequestMessage(HttpMethod.Post, Endpoint))
@@ -65,9 +78,26 @@ namespace iRacingReplayDirector.AI.LLM
 				}
 
 				var response = await SharedHttpClient.SendAsync(request, cancellationToken);
-				response.EnsureSuccessStatusCode();
 
+				// Read response body first to capture error details
 				string responseJson = await response.Content.ReadAsStringAsync();
+
+				if (!response.IsSuccessStatusCode)
+				{
+					string errorMessage = $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}";
+					try
+					{
+						var errorObj = JObject.Parse(responseJson);
+						var apiError = errorObj["error"]?["message"]?.ToString();
+						if (!string.IsNullOrEmpty(apiError))
+						{
+							errorMessage = apiError;
+						}
+					}
+					catch { }
+					throw new HttpRequestException(errorMessage);
+				}
+
 				return ParseResponse(responseJson, summary);
 			}
 		}
