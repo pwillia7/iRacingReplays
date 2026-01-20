@@ -336,15 +336,15 @@ namespace iRacingReplayDirector
 		private void ResetWeights_Click(object sender, RoutedEventArgs e)
 		{
 			// Reset to default values
-			IncidentWeightSlider.Value = 50;
-			OvertakeWeightSlider.Value = 40;
-			BattleWeightSlider.Value = 35;
-			MomentumWeightSlider.Value = 25;
+			IncidentWeightSlider.Value = 70;
+			OvertakeWeightSlider.Value = 50;
+			BattleWeightSlider.Value = 10;
+			MomentumWeightSlider.Value = 20;
 			PackWeightSlider.Value = 15;
-			FreshActionWeightSlider.Value = 15;
-			PositionWeightSlider.Value = 15;
-			VarietyPenaltySlider.Value = 60;
-			VarietyDampeningSlider.Value = 40;
+			FreshActionWeightSlider.Value = 25;
+			PositionWeightSlider.Value = 20;
+			VarietyPenaltySlider.Value = 70;
+			VarietyDampeningSlider.Value = 30;
 			MinCutsSlider.Value = 4;
 
 			// Reset focus driver

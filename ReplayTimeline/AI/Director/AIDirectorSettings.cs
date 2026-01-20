@@ -83,21 +83,21 @@ namespace iRacingReplayDirector.AI.Director
 		// ===========================================
 
 		// Event scoring weights (how much each event type contributes)
-		private int _incidentWeight = 50;
+		private int _incidentWeight = 70;
 		public int IncidentWeight
 		{
 			get { return _incidentWeight; }
 			set { _incidentWeight = value; OnPropertyChanged("IncidentWeight"); }
 		}
 
-		private int _overtakeWeight = 40;
+		private int _overtakeWeight = 50;
 		public int OvertakeWeight
 		{
 			get { return _overtakeWeight; }
 			set { _overtakeWeight = value; OnPropertyChanged("OvertakeWeight"); }
 		}
 
-		private int _battleWeight = 35;
+		private int _battleWeight = 10;
 		public int BattleWeight
 		{
 			get { return _battleWeight; }
@@ -105,7 +105,7 @@ namespace iRacingReplayDirector.AI.Director
 		}
 
 		// Bonus weights
-		private int _momentumWeight = 25;
+		private int _momentumWeight = 20;
 		public int MomentumWeight
 		{
 			get { return _momentumWeight; }
@@ -119,7 +119,7 @@ namespace iRacingReplayDirector.AI.Director
 			set { _packWeight = value; OnPropertyChanged("PackWeight"); }
 		}
 
-		private int _freshActionWeight = 15;
+		private int _freshActionWeight = 25;
 		public int FreshActionWeight
 		{
 			get { return _freshActionWeight; }
@@ -127,7 +127,7 @@ namespace iRacingReplayDirector.AI.Director
 		}
 
 		// Position weight (baseline interest from running position)
-		private int _positionWeight = 15;
+		private int _positionWeight = 20;
 		public int PositionWeight
 		{
 			get { return _positionWeight; }
@@ -135,7 +135,7 @@ namespace iRacingReplayDirector.AI.Director
 		}
 
 		// Variety penalty (how strongly we enforce driver switching)
-		private int _varietyPenalty = 60;
+		private int _varietyPenalty = 70;
 		public int VarietyPenalty
 		{
 			get { return _varietyPenalty; }
@@ -144,7 +144,7 @@ namespace iRacingReplayDirector.AI.Director
 
 		// Variety dampening (0-100: how much action reduces variety penalty)
 		// 0 = no dampening (full variety always), 100 = full dampening (action overrides variety)
-		private int _varietyDampening = 40;
+		private int _varietyDampening = 30;
 		public int VarietyDampening
 		{
 			get { return _varietyDampening; }

@@ -1,4 +1,5 @@
 using System;
+using System.Media;
 using System.Windows;
 using System.Windows.Input;
 
@@ -53,6 +54,9 @@ namespace iRacingReplayDirector
 
 				if (plan != null && plan.CameraActions.Count > 0)
 				{
+					// Play completion chime
+					SystemSounds.Asterisk.Play();
+
 					MessageBox.Show(
 						$"Camera plan generated!\n\n{plan.CameraActions.Count} camera switches created.\n\nClick 'Apply Plan' to add them to the timeline.",
 						"Plan Generated",

@@ -2,6 +2,7 @@ using iRacingReplayDirector.AI.Models;
 using iRacingSimulator;
 using System;
 using System.Collections.Generic;
+using System.Media;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -89,6 +90,9 @@ namespace iRacingReplayDirector
 					}
 					return;
 				}
+
+				// Play completion chime
+				SystemSounds.Asterisk.Play();
 
 				MessageBox.Show(
 					$"Scan complete!\n\nDetected {scanResult.Events.Count} events.\n\nYou can now generate a camera plan.",
