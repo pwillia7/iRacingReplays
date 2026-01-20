@@ -541,6 +541,9 @@ namespace iRacingReplayDirector.AI.Director
 				TotalDurationFrames = LastScanResult.EndFrame - LastScanResult.StartFrame
 			};
 
+			// Reset camera variety tracking for new plan
+			_recentlyUsedCameras.Clear();
+
 			// Get available cameras (not excluded)
 			var availableCameras = _viewModel.Cameras
 				.Where(c => c != null && !Settings.IsCameraExcluded(c.GroupName))
@@ -667,51 +670,59 @@ namespace iRacingReplayDirector.AI.Director
 			public int? SecondaryDriverNumber { get; set; }
 		}
 
+		// Track recently used cameras for variety
+		private List<string> _recentlyUsedCameras = new List<string>();
+		private const int MaxRecentCameras = 4;
+
 		/// <summary>
-		/// Select an appropriate camera based on event type.
+		/// Select an appropriate camera based on event type with variety enforcement.
 		/// </summary>
 		private string SelectCameraForEvent(RaceEvent evt, List<string> availableCameras, string lastCamera)
 		{
-			// Camera preferences by event type
-			string[] preferredCameras;
+			// Camera category preferences by event type (will pick randomly within category)
+			string[][] cameraCategories;
 
 			switch (evt.EventType)
 			{
 				case RaceEventType.Incident:
 					// For incidents, prefer wide angles that show the whole scene
-					preferredCameras = new[] { "TV1", "TV2", "TV3", "Chopper", "Blimp", "Chase", "Far Chase" };
+					cameraCategories = new[] {
+						new[] { "TV1", "TV2", "TV3" },           // TV cameras - wide shots
+						new[] { "Chopper", "Blimp" },            // Aerial - overview
+						new[] { "Chase", "Far Chase" }           // Chase - follow action
+					};
 					break;
 
 				case RaceEventType.Overtake:
-					// For overtakes, prefer chase cameras to follow the action
-					preferredCameras = new[] { "Chase", "Far Chase", "TV1", "TV2", "Rear Chase", "Cockpit" };
+					// For overtakes, mix of angles to show the pass
+					cameraCategories = new[] {
+						new[] { "Chase", "Far Chase" },          // Behind car
+						new[] { "TV1", "TV2", "TV3" },           // Wide angle
+						new[] { "Cockpit", "Roll Bar" },         // Onboard
+						new[] { "Nose", "Gearbox" }              // Unique angles
+					};
 					break;
 
 				case RaceEventType.Battle:
-					// For battles, mix of chase and TV angles
-					preferredCameras = new[] { "Chase", "TV1", "TV2", "Far Chase", "Nose", "Cockpit" };
+					// For battles, variety of angles
+					cameraCategories = new[] {
+						new[] { "TV1", "TV2", "TV3" },           // Wide to show both cars
+						new[] { "Chase", "Far Chase" },          // Follow action
+						new[] { "Cockpit", "Roll Bar" },         // Driver perspective
+						new[] { "Chopper", "Blimp" }             // Aerial
+					};
 					break;
 
 				default:
-					preferredCameras = new[] { "TV1", "Chase", "TV2", "Cockpit" };
+					cameraCategories = new[] {
+						new[] { "TV1", "TV2", "TV3" },
+						new[] { "Chase", "Far Chase" },
+						new[] { "Cockpit" }
+					};
 					break;
 			}
 
-			// Find first preferred camera that's available and not the last one used
-			foreach (var pref in preferredCameras)
-			{
-				var match = availableCameras.FirstOrDefault(c =>
-					c.IndexOf(pref, StringComparison.OrdinalIgnoreCase) >= 0 && c != lastCamera);
-				if (match != null)
-					return match;
-			}
-
-			// Fallback: any camera different from last
-			var different = availableCameras.Where(c => c != lastCamera).ToList();
-			if (different.Any())
-				return different[_random.Next(different.Count)];
-
-			return availableCameras[_random.Next(availableCameras.Count)];
+			return SelectCameraWithVariety(availableCameras, lastCamera, cameraCategories);
 		}
 
 		/// <summary>
@@ -719,32 +730,123 @@ namespace iRacingReplayDirector.AI.Director
 		/// </summary>
 		private string SelectCameraForContext(string context, List<string> availableCameras, string lastCamera)
 		{
-			string[] preferredCameras;
+			string[][] cameraCategories;
 
 			if (context == "opening")
 			{
 				// Wide establishing shots for opening
-				preferredCameras = new[] { "Chopper", "Blimp", "TV1", "TV2", "TV3" };
+				cameraCategories = new[] {
+					new[] { "Chopper", "Blimp" },            // Aerial first
+					new[] { "TV1", "TV2", "TV3" }            // Or TV wide
+				};
 			}
 			else
 			{
-				// Gap fillers - variety of angles
-				preferredCameras = new[] { "TV1", "TV2", "Chase", "Far Chase", "Cockpit", "Chopper" };
+				// Gap fillers - use full variety
+				cameraCategories = new[] {
+					new[] { "TV1", "TV2", "TV3" },
+					new[] { "Chase", "Far Chase" },
+					new[] { "Cockpit", "Roll Bar" },
+					new[] { "Chopper", "Blimp" },
+					new[] { "Nose", "Gearbox", "Gyro" }
+				};
 			}
 
-			foreach (var pref in preferredCameras)
+			return SelectCameraWithVariety(availableCameras, lastCamera, cameraCategories);
+		}
+
+		/// <summary>
+		/// Select a camera with variety enforcement - avoids recently used cameras
+		/// and randomizes within categories.
+		/// </summary>
+		private string SelectCameraWithVariety(List<string> availableCameras, string lastCamera, string[][] cameraCategories)
+		{
+			// Build list of candidate cameras from all categories, excluding recently used
+			var candidates = new List<(string camera, int categoryIndex)>();
+
+			for (int catIdx = 0; catIdx < cameraCategories.Length; catIdx++)
 			{
-				var match = availableCameras.FirstOrDefault(c =>
-					c.IndexOf(pref, StringComparison.OrdinalIgnoreCase) >= 0 && c != lastCamera);
-				if (match != null)
-					return match;
+				foreach (var camName in cameraCategories[catIdx])
+				{
+					// Find exact or close match in available cameras
+					var match = FindCameraMatch(availableCameras, camName);
+					if (match != null && match != lastCamera && !_recentlyUsedCameras.Contains(match))
+					{
+						candidates.Add((match, catIdx));
+					}
+				}
 			}
 
-			var different = availableCameras.Where(c => c != lastCamera).ToList();
-			if (different.Any())
-				return different[_random.Next(different.Count)];
+			string selected = null;
 
-			return availableCameras[_random.Next(availableCameras.Count)];
+			if (candidates.Any())
+			{
+				// Group by category and pick a random category first, then random camera within it
+				var byCategory = candidates.GroupBy(c => c.categoryIndex).ToList();
+				var randomCategory = byCategory[_random.Next(byCategory.Count)];
+				var camerasInCategory = randomCategory.ToList();
+				selected = camerasInCategory[_random.Next(camerasInCategory.Count)].camera;
+			}
+			else
+			{
+				// All preferred cameras were recently used - allow any not-last camera
+				var notLast = availableCameras.Where(c => c != lastCamera).ToList();
+				if (notLast.Any())
+				{
+					selected = notLast[_random.Next(notLast.Count)];
+				}
+				else if (availableCameras.Any())
+				{
+					selected = availableCameras[_random.Next(availableCameras.Count)];
+				}
+			}
+
+			// Track recently used
+			if (selected != null)
+			{
+				_recentlyUsedCameras.Remove(selected);
+				_recentlyUsedCameras.Insert(0, selected);
+				while (_recentlyUsedCameras.Count > MaxRecentCameras)
+				{
+					_recentlyUsedCameras.RemoveAt(_recentlyUsedCameras.Count - 1);
+				}
+			}
+
+			return selected ?? availableCameras.FirstOrDefault() ?? "TV1";
+		}
+
+		/// <summary>
+		/// Find a camera in the available list that matches the given name.
+		/// Uses exact match first, then prefix match, avoiding false positives.
+		/// </summary>
+		private string FindCameraMatch(List<string> availableCameras, string targetName)
+		{
+			// Try exact match first (case-insensitive)
+			var exact = availableCameras.FirstOrDefault(c =>
+				c.Equals(targetName, StringComparison.OrdinalIgnoreCase));
+			if (exact != null)
+				return exact;
+
+			// Try match where available camera starts with target (e.g., "TV1" matches "TV1 Static")
+			var startsWith = availableCameras.FirstOrDefault(c =>
+				c.StartsWith(targetName, StringComparison.OrdinalIgnoreCase));
+			if (startsWith != null)
+				return startsWith;
+
+			// Try match where target is contained but only as a whole word
+			// This prevents "Chase" from matching "Rear Chase"
+			var containsWord = availableCameras.FirstOrDefault(c =>
+			{
+				// Check if it's at the start of the string
+				if (c.StartsWith(targetName + " ", StringComparison.OrdinalIgnoreCase))
+					return true;
+				// Check if targetName equals the whole string
+				if (c.Equals(targetName, StringComparison.OrdinalIgnoreCase))
+					return true;
+				return false;
+			});
+
+			return containsWord;
 		}
 
 		/// <summary>
