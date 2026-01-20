@@ -676,6 +676,8 @@ namespace iRacingReplayDirector.AI.Director
 
 		/// <summary>
 		/// Select an appropriate camera based on event type with variety enforcement.
+		/// Available cameras: Nose, Gearbox, Roll Bar, LF Susp, LR Susp, Gyro, RF Susp, RR Susp,
+		/// Cockpit, Scenic, TV1, TV2, TV3, Chopper, Blimp, Chase, Far Chase, Rear Chase, Pit Lane, Pit Lane 2
 		/// </summary>
 		private string SelectCameraForEvent(RaceEvent evt, List<string> availableCameras, string lastCamera)
 		{
@@ -687,37 +689,41 @@ namespace iRacingReplayDirector.AI.Director
 				case RaceEventType.Incident:
 					// For incidents, prefer wide angles that show the whole scene
 					cameraCategories = new[] {
-						new[] { "TV1", "TV2", "TV3" },           // TV cameras - wide shots
-						new[] { "Chopper", "Blimp" },            // Aerial - overview
-						new[] { "Chase", "Far Chase" }           // Chase - follow action
+						new[] { "TV1", "TV2", "TV3" },                       // TV cameras - wide shots
+						new[] { "Chopper", "Blimp" },                        // Aerial - overview
+						new[] { "Chase", "Far Chase", "Rear Chase" },       // Chase cameras
+						new[] { "Gyro" }                                     // Dynamic angle
 					};
 					break;
 
 				case RaceEventType.Overtake:
 					// For overtakes, mix of angles to show the pass
 					cameraCategories = new[] {
-						new[] { "Chase", "Far Chase" },          // Behind car
-						new[] { "TV1", "TV2", "TV3" },           // Wide angle
-						new[] { "Cockpit", "Roll Bar" },         // Onboard
-						new[] { "Nose", "Gearbox" }              // Unique angles
+						new[] { "TV1", "TV2", "TV3" },                       // Wide angle
+						new[] { "Chase", "Far Chase", "Rear Chase" },       // Behind/front car
+						new[] { "Cockpit", "Roll Bar" },                    // Onboard driver view
+						new[] { "Nose", "Gearbox", "Gyro" },                // Unique angles
+						new[] { "LF Susp", "RF Susp", "LR Susp", "RR Susp" } // Suspension cams
 					};
 					break;
 
 				case RaceEventType.Battle:
 					// For battles, variety of angles
 					cameraCategories = new[] {
-						new[] { "TV1", "TV2", "TV3" },           // Wide to show both cars
-						new[] { "Chase", "Far Chase" },          // Follow action
-						new[] { "Cockpit", "Roll Bar" },         // Driver perspective
-						new[] { "Chopper", "Blimp" }             // Aerial
+						new[] { "TV1", "TV2", "TV3" },                       // Wide to show both cars
+						new[] { "Chase", "Far Chase", "Rear Chase" },       // Follow action
+						new[] { "Cockpit", "Roll Bar" },                    // Driver perspective
+						new[] { "Chopper", "Blimp" },                       // Aerial
+						new[] { "Nose", "Gearbox" }                         // Car angles
 					};
 					break;
 
 				default:
 					cameraCategories = new[] {
 						new[] { "TV1", "TV2", "TV3" },
-						new[] { "Chase", "Far Chase" },
-						new[] { "Cockpit" }
+						new[] { "Chase", "Far Chase", "Rear Chase" },
+						new[] { "Cockpit", "Roll Bar" },
+						new[] { "Nose", "Gearbox", "Gyro" }
 					};
 					break;
 			}
@@ -736,19 +742,20 @@ namespace iRacingReplayDirector.AI.Director
 			{
 				// Wide establishing shots for opening
 				cameraCategories = new[] {
-					new[] { "Chopper", "Blimp" },            // Aerial first
-					new[] { "TV1", "TV2", "TV3" }            // Or TV wide
+					new[] { "Chopper", "Blimp" },                        // Aerial first
+					new[] { "TV1", "TV2", "TV3" }                        // Or TV wide
 				};
 			}
 			else
 			{
-				// Gap fillers - use full variety
+				// Gap fillers - use full variety of all camera types
 				cameraCategories = new[] {
-					new[] { "TV1", "TV2", "TV3" },
-					new[] { "Chase", "Far Chase" },
-					new[] { "Cockpit", "Roll Bar" },
-					new[] { "Chopper", "Blimp" },
-					new[] { "Nose", "Gearbox", "Gyro" }
+					new[] { "TV1", "TV2", "TV3" },                       // TV wide shots
+					new[] { "Chase", "Far Chase", "Rear Chase" },       // Chase cameras
+					new[] { "Cockpit", "Roll Bar" },                    // Driver view
+					new[] { "Chopper", "Blimp" },                       // Aerial
+					new[] { "Nose", "Gearbox", "Gyro" },                // Car-mounted
+					new[] { "LF Susp", "RF Susp", "LR Susp", "RR Susp" } // Suspension cams
 				};
 			}
 

@@ -124,6 +124,12 @@ namespace iRacingReplayDirector
 			ExcludeNose.IsChecked = excluded.Any(e => e.Equals("Nose", System.StringComparison.OrdinalIgnoreCase));
 			ExcludeGearbox.IsChecked = excluded.Any(e => e.Equals("Gearbox", System.StringComparison.OrdinalIgnoreCase));
 
+			// Suspension Cameras
+			ExcludeLFSusp.IsChecked = excluded.Any(e => e.Equals("LF Susp", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeRFSusp.IsChecked = excluded.Any(e => e.Equals("RF Susp", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeLRSusp.IsChecked = excluded.Any(e => e.Equals("LR Susp", System.StringComparison.OrdinalIgnoreCase));
+			ExcludeRRSusp.IsChecked = excluded.Any(e => e.Equals("RR Susp", System.StringComparison.OrdinalIgnoreCase));
+
 			// Aerial Cameras
 			ExcludeChopper.IsChecked = excluded.Any(e => e.Equals("Chopper", System.StringComparison.OrdinalIgnoreCase));
 			ExcludeBlimp.IsChecked = excluded.Any(e => e.Equals("Blimp", System.StringComparison.OrdinalIgnoreCase));
@@ -224,6 +230,12 @@ namespace iRacingReplayDirector
 			if (ExcludeGyro.IsChecked == true) excludedCameras.Add("Gyro");
 			if (ExcludeNose.IsChecked == true) excludedCameras.Add("Nose");
 			if (ExcludeGearbox.IsChecked == true) excludedCameras.Add("Gearbox");
+
+			// Suspension Cameras
+			if (ExcludeLFSusp.IsChecked == true) excludedCameras.Add("LF Susp");
+			if (ExcludeRFSusp.IsChecked == true) excludedCameras.Add("RF Susp");
+			if (ExcludeLRSusp.IsChecked == true) excludedCameras.Add("LR Susp");
+			if (ExcludeRRSusp.IsChecked == true) excludedCameras.Add("RR Susp");
 
 			// Aerial Cameras
 			if (ExcludeChopper.IsChecked == true) excludedCameras.Add("Chopper");
@@ -370,11 +382,13 @@ namespace iRacingReplayDirector
 
 		private void ResetCameras_Click(object sender, RoutedEventArgs e)
 		{
-			// Reset to defaults (only Scenic, Pit Lane, Pit Lane 2 excluded)
+			// Reset to defaults: Scenic, Pit Lane, Pit Lane 2, Chase, Far Chase excluded
 			SetAllCameraCheckboxes(false);
 			ExcludeScenic.IsChecked = true;
 			ExcludePitLane.IsChecked = true;
 			ExcludePitLane2.IsChecked = true;
+			ExcludeChase.IsChecked = true;
+			ExcludeFarChase.IsChecked = true;
 		}
 
 		private void SetAllCameraCheckboxes(bool isChecked)
@@ -395,6 +409,12 @@ namespace iRacingReplayDirector
 			ExcludeGyro.IsChecked = isChecked;
 			ExcludeNose.IsChecked = isChecked;
 			ExcludeGearbox.IsChecked = isChecked;
+
+			// Suspension Cameras
+			ExcludeLFSusp.IsChecked = isChecked;
+			ExcludeRFSusp.IsChecked = isChecked;
+			ExcludeLRSusp.IsChecked = isChecked;
+			ExcludeRRSusp.IsChecked = isChecked;
 
 			// Aerial Cameras
 			ExcludeChopper.IsChecked = isChecked;

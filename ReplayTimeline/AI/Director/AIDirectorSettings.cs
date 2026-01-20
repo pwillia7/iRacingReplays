@@ -208,7 +208,7 @@ namespace iRacingReplayDirector.AI.Director
 		// ===========================================
 
 		// Comma-separated list of camera names to exclude
-		private string _excludedCameras = "Scenic,Pit Lane,Pit Lane 2";
+		private string _excludedCameras = "Scenic,Pit Lane,Pit Lane 2,Chase,Far Chase";
 		public string ExcludedCameras
 		{
 			get { return _excludedCameras; }

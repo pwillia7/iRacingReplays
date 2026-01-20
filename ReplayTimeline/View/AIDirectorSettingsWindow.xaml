@@ -269,9 +269,9 @@
                                 <CheckBox x:Name="ExcludeTV2" Content="TV2" Margin="15,2,0,0"/>
                                 <CheckBox x:Name="ExcludeTV3" Content="TV3" Margin="15,2,0,0"/>
 
-                                <TextBlock Text="Chase Cameras" FontWeight="SemiBold" Margin="0,10,0,5"/>
-                                <CheckBox x:Name="ExcludeChase" Content="Chase" Margin="15,2,0,0"/>
-                                <CheckBox x:Name="ExcludeFarChase" Content="Far Chase" Margin="15,2,0,0"/>
+                                <TextBlock Text="Chase Cameras (excluded by default)" FontWeight="SemiBold" Margin="0,10,0,5"/>
+                                <CheckBox x:Name="ExcludeChase" Content="Chase" IsChecked="True" Margin="15,2,0,0"/>
+                                <CheckBox x:Name="ExcludeFarChase" Content="Far Chase" IsChecked="True" Margin="15,2,0,0"/>
                                 <CheckBox x:Name="ExcludeRearChase" Content="Rear Chase" Margin="15,2,0,0"/>
 
                                 <TextBlock Text="Onboard Cameras" FontWeight="SemiBold" Margin="0,10,0,5"/>
@@ -280,6 +280,12 @@
                                 <CheckBox x:Name="ExcludeGyro" Content="Gyro" Margin="15,2,0,0"/>
                                 <CheckBox x:Name="ExcludeNose" Content="Nose" Margin="15,2,0,0"/>
                                 <CheckBox x:Name="ExcludeGearbox" Content="Gearbox" Margin="15,2,0,0"/>
+
+                                <TextBlock Text="Suspension Cameras" FontWeight="SemiBold" Margin="0,10,0,5"/>
+                                <CheckBox x:Name="ExcludeLFSusp" Content="LF Susp" Margin="15,2,0,0"/>
+                                <CheckBox x:Name="ExcludeRFSusp" Content="RF Susp" Margin="15,2,0,0"/>
+                                <CheckBox x:Name="ExcludeLRSusp" Content="LR Susp" Margin="15,2,0,0"/>
+                                <CheckBox x:Name="ExcludeRRSusp" Content="RR Susp" Margin="15,2,0,0"/>
 
                                 <TextBlock Text="Aerial Cameras" FontWeight="SemiBold" Margin="0,10,0,5"/>
                                 <CheckBox x:Name="ExcludeChopper" Content="Chopper" Margin="15,2,0,0"/>
