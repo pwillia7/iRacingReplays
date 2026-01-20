@@ -640,14 +640,17 @@ namespace iRacingReplayDirector.AI.Director
 				maxFramesBetweenCuts, minFramesBetweenCuts, availableCameras);
 
 			// Sort by frame and convert to camera actions
+			// NOTE: We intentionally do NOT set DriverNumber here.
+			// Driver selection is handled by FindMostExcitingDriver() in ApplyPlanToNodeCollection,
+			// which considers variety penalties, event proximity scoring, momentum, etc.
+			// The event proximity scoring will naturally boost drivers involved in events at each frame.
 			foreach (var cut in scheduledCuts.OrderBy(c => c.Frame))
 			{
 				plan.CameraActions.Add(new CameraAction
 				{
 					Frame = cut.Frame,
 					CameraName = cut.CameraName,
-					Reason = cut.Reason,
-					DriverNumber = cut.PrimaryDriverNumber
+					Reason = cut.Reason
 				});
 			}
 
@@ -927,19 +930,9 @@ namespace iRacingReplayDirector.AI.Director
 
 				foreach (var action in GeneratedPlan.CameraActions.OrderBy(a => a.Frame))
 				{
-					Driver driver = null;
-
-					// If the action specifies a driver (from event-driven plan), use that driver
-					if (action.DriverNumber > 0)
-					{
-						driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == action.DriverNumber);
-					}
-
-					// Otherwise, find the most interesting driver at this frame based on events
-					if (driver == null)
-					{
-						driver = FindMostExcitingDriver(action.Frame);
-					}
+					// Find the most interesting driver at this frame based on events
+					// This considers variety penalties, event proximity, momentum, pack racing, etc.
+					Driver driver = FindMostExcitingDriver(action.Frame);
 
 					if (driver == null)
 					{
