@@ -486,11 +486,11 @@ namespace iRacingReplayDirector.AI.Director
 
 			try
 			{
-				// Check if AI is disabled - use random camera generation
+				// Check if AI is disabled - use event-driven local generation
 				if (!Settings.UseAIForCameraPlan)
 				{
-					GeneratedPlan = GenerateRandomCameraPlan();
-					StatusMessage = $"Random plan generated: {GeneratedPlan.CameraActions.Count} camera actions";
+					GeneratedPlan = GenerateEventDrivenCameraPlan();
+					StatusMessage = $"Event-driven plan generated: {GeneratedPlan.CameraActions.Count} camera actions";
 					State = AIDirectorState.Idle;
 					return GeneratedPlan;
 				}
@@ -530,13 +530,13 @@ namespace iRacingReplayDirector.AI.Director
 		}
 
 		/// <summary>
-		/// Generate a camera plan with random camera selection (no AI/LLM).
+		/// Generate an event-driven camera plan that switches cameras before events happen.
 		/// </summary>
-		private CameraPlan GenerateRandomCameraPlan()
+		private CameraPlan GenerateEventDrivenCameraPlan()
 		{
 			var plan = new CameraPlan
 			{
-				GeneratedBy = "Random",
+				GeneratedBy = "Event-Driven",
 				GeneratedAt = DateTime.Now,
 				TotalDurationFrames = LastScanResult.EndFrame - LastScanResult.StartFrame
 			};
@@ -549,7 +549,6 @@ namespace iRacingReplayDirector.AI.Director
 
 			if (!availableCameras.Any())
 			{
-				// Fallback to all cameras if none available
 				availableCameras = _viewModel.Cameras
 					.Where(c => c != null)
 					.Select(c => c.GroupName)
@@ -559,39 +558,258 @@ namespace iRacingReplayDirector.AI.Director
 			if (!availableCameras.Any())
 				return plan;
 
-			// Calculate frame interval based on settings
-			int fps = 60; // Default fps
-			int framesPerCut = Settings.SecondsBetweenCuts * fps;
+			const int fps = 60;
+			int anticipationFrames = Settings.EventAnticipationSeconds * fps;
+			int minFramesBetweenCuts = Settings.MinSecondsBetweenCuts * fps;
+			int maxFramesBetweenCuts = Settings.MaxSecondsBetweenCuts * fps;
 
-			int currentFrame = LastScanResult.StartFrame;
+			// Sort events by frame and filter to significant events
+			var significantEvents = LastScanResult.Events
+				.Where(e => e.EventType == RaceEventType.Incident ||
+				           e.EventType == RaceEventType.Overtake ||
+				           (e.EventType == RaceEventType.Battle && e.ImportanceScore >= 6))
+				.OrderBy(e => e.Frame)
+				.ToList();
+
+			// Track scheduled cut frames to avoid duplicates and respect minimum spacing
+			var scheduledCuts = new List<ScheduledCut>();
+			int lastCutFrame = LastScanResult.StartFrame - minFramesBetweenCuts;
 			string lastCamera = null;
 
-			while (currentFrame < LastScanResult.EndFrame)
+			// Add opening cut at start
+			string openingCamera = SelectCameraForContext("opening", availableCameras, null);
+			scheduledCuts.Add(new ScheduledCut
 			{
-				// Pick a random camera (different from the last one if possible)
-				string selectedCamera;
-				if (availableCameras.Count > 1 && lastCamera != null)
+				Frame = LastScanResult.StartFrame,
+				CameraName = openingCamera,
+				Reason = "Opening shot",
+				EventType = null,
+				PrimaryDriverNumber = 0
+			});
+			lastCutFrame = LastScanResult.StartFrame;
+			lastCamera = openingCamera;
+
+			// Schedule cuts for each significant event
+			foreach (var evt in significantEvents)
+			{
+				// Calculate the frame to switch TO this event (before it happens)
+				int cutFrame = evt.Frame - anticipationFrames;
+
+				// Ensure cut frame is within bounds
+				if (cutFrame < LastScanResult.StartFrame)
+					cutFrame = LastScanResult.StartFrame;
+				if (cutFrame >= LastScanResult.EndFrame)
+					continue;
+
+				// Check minimum spacing from last cut
+				if (cutFrame - lastCutFrame < minFramesBetweenCuts)
 				{
-					var otherCameras = availableCameras.Where(c => c != lastCamera).ToList();
-					selectedCamera = otherCameras[_random.Next(otherCameras.Count)];
-				}
-				else
-				{
-					selectedCamera = availableCameras[_random.Next(availableCameras.Count)];
+					// Event is too close to last cut - skip or merge
+					// But if this is a high-importance event (incident), try to fit it in
+					if (evt.EventType == RaceEventType.Incident && evt.ImportanceScore >= 8)
+					{
+						cutFrame = lastCutFrame + minFramesBetweenCuts;
+						if (cutFrame >= evt.Frame + evt.DurationFrames)
+							continue; // Too late, skip this event
+					}
+					else
+					{
+						continue;
+					}
 				}
 
-				plan.CameraActions.Add(new CameraAction
+				// Select appropriate camera for this event type
+				string camera = SelectCameraForEvent(evt, availableCameras, lastCamera);
+
+				scheduledCuts.Add(new ScheduledCut
 				{
-					Frame = currentFrame,
-					CameraName = selectedCamera,
-					DurationSeconds = Settings.SecondsBetweenCuts
+					Frame = cutFrame,
+					CameraName = camera,
+					Reason = evt.Description,
+					EventType = evt.EventType,
+					PrimaryDriverNumber = evt.PrimaryDriverNumber,
+					SecondaryDriverNumber = evt.SecondaryDriverNumber
 				});
 
-				lastCamera = selectedCamera;
-				currentFrame += framesPerCut;
+				lastCutFrame = cutFrame;
+				lastCamera = camera;
+			}
+
+			// Fill gaps where there are no events
+			FillGapsWithCuts(scheduledCuts, LastScanResult.StartFrame, LastScanResult.EndFrame,
+				maxFramesBetweenCuts, minFramesBetweenCuts, availableCameras);
+
+			// Sort by frame and convert to camera actions
+			foreach (var cut in scheduledCuts.OrderBy(c => c.Frame))
+			{
+				plan.CameraActions.Add(new CameraAction
+				{
+					Frame = cut.Frame,
+					CameraName = cut.CameraName,
+					Reason = cut.Reason,
+					DriverNumber = cut.PrimaryDriverNumber
+				});
 			}
 
 			return plan;
+		}
+
+		private class ScheduledCut
+		{
+			public int Frame { get; set; }
+			public string CameraName { get; set; }
+			public string Reason { get; set; }
+			public RaceEventType? EventType { get; set; }
+			public int PrimaryDriverNumber { get; set; }
+			public int? SecondaryDriverNumber { get; set; }
+		}
+
+		/// <summary>
+		/// Select an appropriate camera based on event type.
+		/// </summary>
+		private string SelectCameraForEvent(RaceEvent evt, List<string> availableCameras, string lastCamera)
+		{
+			// Camera preferences by event type
+			string[] preferredCameras;
+
+			switch (evt.EventType)
+			{
+				case RaceEventType.Incident:
+					// For incidents, prefer wide angles that show the whole scene
+					preferredCameras = new[] { "TV1", "TV2", "TV3", "Chopper", "Blimp", "Chase", "Far Chase" };
+					break;
+
+				case RaceEventType.Overtake:
+					// For overtakes, prefer chase cameras to follow the action
+					preferredCameras = new[] { "Chase", "Far Chase", "TV1", "TV2", "Rear Chase", "Cockpit" };
+					break;
+
+				case RaceEventType.Battle:
+					// For battles, mix of chase and TV angles
+					preferredCameras = new[] { "Chase", "TV1", "TV2", "Far Chase", "Nose", "Cockpit" };
+					break;
+
+				default:
+					preferredCameras = new[] { "TV1", "Chase", "TV2", "Cockpit" };
+					break;
+			}
+
+			// Find first preferred camera that's available and not the last one used
+			foreach (var pref in preferredCameras)
+			{
+				var match = availableCameras.FirstOrDefault(c =>
+					c.IndexOf(pref, StringComparison.OrdinalIgnoreCase) >= 0 && c != lastCamera);
+				if (match != null)
+					return match;
+			}
+
+			// Fallback: any camera different from last
+			var different = availableCameras.Where(c => c != lastCamera).ToList();
+			if (different.Any())
+				return different[_random.Next(different.Count)];
+
+			return availableCameras[_random.Next(availableCameras.Count)];
+		}
+
+		/// <summary>
+		/// Select camera for non-event contexts (opening, gap filler).
+		/// </summary>
+		private string SelectCameraForContext(string context, List<string> availableCameras, string lastCamera)
+		{
+			string[] preferredCameras;
+
+			if (context == "opening")
+			{
+				// Wide establishing shots for opening
+				preferredCameras = new[] { "Chopper", "Blimp", "TV1", "TV2", "TV3" };
+			}
+			else
+			{
+				// Gap fillers - variety of angles
+				preferredCameras = new[] { "TV1", "TV2", "Chase", "Far Chase", "Cockpit", "Chopper" };
+			}
+
+			foreach (var pref in preferredCameras)
+			{
+				var match = availableCameras.FirstOrDefault(c =>
+					c.IndexOf(pref, StringComparison.OrdinalIgnoreCase) >= 0 && c != lastCamera);
+				if (match != null)
+					return match;
+			}
+
+			var different = availableCameras.Where(c => c != lastCamera).ToList();
+			if (different.Any())
+				return different[_random.Next(different.Count)];
+
+			return availableCameras[_random.Next(availableCameras.Count)];
+		}
+
+		/// <summary>
+		/// Fill long gaps between events with regular interval cuts.
+		/// </summary>
+		private void FillGapsWithCuts(List<ScheduledCut> cuts, int startFrame, int endFrame,
+			int maxGapFrames, int minGapFrames, List<string> availableCameras)
+		{
+			// Sort existing cuts
+			var sortedCuts = cuts.OrderBy(c => c.Frame).ToList();
+			var newCuts = new List<ScheduledCut>();
+
+			int previousFrame = startFrame;
+			string lastCamera = sortedCuts.FirstOrDefault()?.CameraName;
+
+			foreach (var cut in sortedCuts)
+			{
+				int gap = cut.Frame - previousFrame;
+
+				// If gap is too long, add filler cuts
+				while (gap > maxGapFrames)
+				{
+					int fillerFrame = previousFrame + maxGapFrames;
+					if (fillerFrame >= cut.Frame - minGapFrames)
+						break; // Don't add filler too close to next event cut
+
+					string fillerCamera = SelectCameraForContext("filler", availableCameras, lastCamera);
+					newCuts.Add(new ScheduledCut
+					{
+						Frame = fillerFrame,
+						CameraName = fillerCamera,
+						Reason = "Field coverage",
+						EventType = null,
+						PrimaryDriverNumber = 0
+					});
+
+					lastCamera = fillerCamera;
+					previousFrame = fillerFrame;
+					gap = cut.Frame - previousFrame;
+				}
+
+				previousFrame = cut.Frame;
+				lastCamera = cut.CameraName;
+			}
+
+			// Fill gap at the end if needed
+			int lastEventFrame = sortedCuts.LastOrDefault()?.Frame ?? startFrame;
+			while (endFrame - lastEventFrame > maxGapFrames)
+			{
+				int fillerFrame = lastEventFrame + maxGapFrames;
+				if (fillerFrame >= endFrame)
+					break;
+
+				string fillerCamera = SelectCameraForContext("filler", availableCameras, lastCamera);
+				newCuts.Add(new ScheduledCut
+				{
+					Frame = fillerFrame,
+					CameraName = fillerCamera,
+					Reason = "Field coverage",
+					EventType = null,
+					PrimaryDriverNumber = 0
+				});
+
+				lastCamera = fillerCamera;
+				lastEventFrame = fillerFrame;
+			}
+
+			cuts.AddRange(newCuts);
 		}
 
 		private async Task<CameraPlan> GenerateChunkedPlanAsync(ILLMProvider provider, RaceEventSummary fullSummary, CancellationToken cancellationToken)
@@ -709,8 +927,19 @@ namespace iRacingReplayDirector.AI.Director
 
 				foreach (var action in GeneratedPlan.CameraActions.OrderBy(a => a.Frame))
 				{
-					// Find the most interesting driver at this frame based on events
-					Driver driver = FindMostExcitingDriver(action.Frame);
+					Driver driver = null;
+
+					// If the action specifies a driver (from event-driven plan), use that driver
+					if (action.DriverNumber > 0)
+					{
+						driver = _viewModel.Drivers.FirstOrDefault(d => d.NumberRaw == action.DriverNumber);
+					}
+
+					// Otherwise, find the most interesting driver at this frame based on events
+					if (driver == null)
+					{
+						driver = FindMostExcitingDriver(action.Frame);
+					}
 
 					if (driver == null)
 					{

@@ -163,15 +163,39 @@ namespace iRacingReplayDirector.AI.Director
 		// Camera Plan Generation Settings
 		// ===========================================
 
-		// Whether to use AI/LLM for camera plan generation (false = random cameras)
-		private bool _useAIForCameraPlan = true;
+		// Whether to use AI/LLM for camera plan generation (false = event-driven local generation)
+		private bool _useAIForCameraPlan = false;
 		public bool UseAIForCameraPlan
 		{
 			get { return _useAIForCameraPlan; }
 			set { _useAIForCameraPlan = value; OnPropertyChanged("UseAIForCameraPlan"); }
 		}
 
-		// Target seconds between camera cuts (used for random mode)
+		// Seconds before an event to switch camera (anticipation/rewind)
+		private int _eventAnticipationSeconds = 3;
+		public int EventAnticipationSeconds
+		{
+			get { return _eventAnticipationSeconds; }
+			set { _eventAnticipationSeconds = value; OnPropertyChanged("EventAnticipationSeconds"); }
+		}
+
+		// Maximum seconds between cuts when no events (fills gaps)
+		private int _maxSecondsBetweenCuts = 15;
+		public int MaxSecondsBetweenCuts
+		{
+			get { return _maxSecondsBetweenCuts; }
+			set { _maxSecondsBetweenCuts = value; OnPropertyChanged("MaxSecondsBetweenCuts"); }
+		}
+
+		// Minimum seconds between cuts (prevents rapid switching)
+		private int _minSecondsBetweenCuts = 4;
+		public int MinSecondsBetweenCuts
+		{
+			get { return _minSecondsBetweenCuts; }
+			set { _minSecondsBetweenCuts = value; OnPropertyChanged("MinSecondsBetweenCuts"); }
+		}
+
+		// Target seconds between camera cuts (used for LLM mode)
 		private int _secondsBetweenCuts = 10;
 		public int SecondsBetweenCuts
 		{

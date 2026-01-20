@@ -71,7 +71,9 @@ namespace iRacingReplayDirector
 
 			// Load camera plan generation settings
 			UseAICheckBox.IsChecked = _aiDirector.Settings.UseAIForCameraPlan;
-			SecondsBetweenCutsSlider.Value = _aiDirector.Settings.SecondsBetweenCuts;
+			AnticipationSlider.Value = _aiDirector.Settings.EventAnticipationSeconds;
+			MinSecondsBetweenCutsSlider.Value = _aiDirector.Settings.MinSecondsBetweenCuts;
+			MaxSecondsBetweenCutsSlider.Value = _aiDirector.Settings.MaxSecondsBetweenCuts;
 			UpdateAIModeVisibility();
 
 			// Load camera exclusion settings
@@ -177,8 +179,10 @@ namespace iRacingReplayDirector
 			_aiDirector.Settings.FocusDriverBonus = (int)FocusDriverBonusSlider.Value;
 
 			// Save camera plan generation settings
-			_aiDirector.Settings.UseAIForCameraPlan = UseAICheckBox.IsChecked ?? true;
-			_aiDirector.Settings.SecondsBetweenCuts = (int)SecondsBetweenCutsSlider.Value;
+			_aiDirector.Settings.UseAIForCameraPlan = UseAICheckBox.IsChecked ?? false;
+			_aiDirector.Settings.EventAnticipationSeconds = (int)AnticipationSlider.Value;
+			_aiDirector.Settings.MinSecondsBetweenCuts = (int)MinSecondsBetweenCutsSlider.Value;
+			_aiDirector.Settings.MaxSecondsBetweenCuts = (int)MaxSecondsBetweenCutsSlider.Value;
 
 			// Save camera exclusion settings
 			SaveCameraExclusions();
@@ -258,12 +262,12 @@ namespace iRacingReplayDirector
 
 		private void UpdateAIModeVisibility()
 		{
-			if (AIProviderPanel == null || RandomModePanel == null)
+			if (AIProviderPanel == null || EventDrivenModePanel == null)
 				return;
 
 			bool useAI = UseAICheckBox.IsChecked ?? true;
 			AIProviderPanel.Visibility = useAI ? Visibility.Visible : Visibility.Collapsed;
-			RandomModePanel.Visibility = useAI ? Visibility.Collapsed : Visibility.Visible;
+			EventDrivenModePanel.Visibility = useAI ? Visibility.Collapsed : Visibility.Visible;
 		}
 
 		private async void TestConnection_Click(object sender, RoutedEventArgs e)
