@@ -414,7 +414,13 @@ namespace iRacingReplayDirector
 				{
 					orderedDriverList[i].Position = 999;
 				}
-			}	
+			}
+
+			// Update ahead/behind overlays when positions change during playback
+			if (_overlayDriver != null && PlaybackEnabled)
+			{
+				UpdateRelativeDrivers();
+			}
 		}
 
 		// Cached session number
