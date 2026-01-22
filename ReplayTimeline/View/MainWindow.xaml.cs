@@ -89,8 +89,8 @@ namespace iRacingReplayDirector
 				_behindDriverOverlay.Show();
 			}
 
-			// Show leaderboard overlay if enabled
-			if (_vm.ShowLeaderboardOverlay)
+			// Show leaderboard overlay if enabled (from View menu or Auto Director settings)
+			if (_vm.ShowLeaderboardOverlay || (settings?.ShowLeaderboardOverlay ?? false))
 			{
 				if (_leaderboardOverlay == null)
 				{

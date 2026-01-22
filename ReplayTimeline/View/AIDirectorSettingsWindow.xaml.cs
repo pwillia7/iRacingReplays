@@ -88,6 +88,7 @@ namespace iRacingReplayDirector
 			ShowCurrentDriverOverlayCheckBox.IsChecked = _aiDirector.Settings.ShowCurrentDriverOverlay;
 			ShowAheadDriverOverlayCheckBox.IsChecked = _aiDirector.Settings.ShowAheadDriverOverlay;
 			ShowBehindDriverOverlayCheckBox.IsChecked = _aiDirector.Settings.ShowBehindDriverOverlay;
+			ShowLeaderboardOverlayCheckBox.IsChecked = _aiDirector.Settings.ShowLeaderboardOverlay;
 
 			// Set position combo box
 			foreach (ComboBoxItem item in OverlayPositionComboBox.Items)
@@ -202,6 +203,7 @@ namespace iRacingReplayDirector
 			_aiDirector.Settings.ShowCurrentDriverOverlay = ShowCurrentDriverOverlayCheckBox.IsChecked ?? true;
 			_aiDirector.Settings.ShowAheadDriverOverlay = ShowAheadDriverOverlayCheckBox.IsChecked ?? false;
 			_aiDirector.Settings.ShowBehindDriverOverlay = ShowBehindDriverOverlayCheckBox.IsChecked ?? false;
+			_aiDirector.Settings.ShowLeaderboardOverlay = ShowLeaderboardOverlayCheckBox.IsChecked ?? false;
 
 			var selectedPosition = OverlayPositionComboBox.SelectedItem as ComboBoxItem;
 			_aiDirector.Settings.OverlayPosition = selectedPosition?.Tag?.ToString() ?? "Bottom";
@@ -431,6 +433,7 @@ namespace iRacingReplayDirector
 			ShowCurrentDriverOverlayCheckBox.IsChecked = true;
 			ShowAheadDriverOverlayCheckBox.IsChecked = false;
 			ShowBehindDriverOverlayCheckBox.IsChecked = false;
+			ShowLeaderboardOverlayCheckBox.IsChecked = false;
 			OverlayPositionComboBox.SelectedIndex = 1; // Bottom
 			OverlayOffsetSlider.Value = 100;
 			OverlayFontSizeSlider.Value = 32;
