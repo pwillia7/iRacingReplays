@@ -37,8 +37,8 @@ namespace iRacingReplayDirector
 			try
 			{
 				var result = System.Windows.MessageBox.Show(
-					"This will clear existing nodes and apply the AI-generated camera plan. Continue?",
-					"Apply AI Plan",
+					"This will clear existing nodes and apply the generated camera plan. Continue?",
+					"Apply Camera Plan",
 					System.Windows.MessageBoxButton.YesNo,
 					System.Windows.MessageBoxImage.Question);
 

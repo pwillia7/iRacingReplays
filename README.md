@@ -11,61 +11,66 @@ Create your own replay edits without any required editing knowledge. Create 'nod
 - Each replay has its own save file so no need to edit everything in one session
 - Works with custom cameras for setting up your own shots with the iRacing camera tool
 - Resizeable window for users with limited screen space
-- **AI Director** - Automatically generate camera plans using LLM-powered analysis
+- **Auto Director** - Automatically generate camera plans with event-driven switching (LLM optional)
 
 ![App screenshot](https://i.ibb.co/6nGVxfh/Main.png)
 
-## AI Director
+## Auto Director
 
-The AI Director feature automatically analyzes your replay and generates professional-style camera sequences using AI/LLM technology.
+The Auto Director feature automatically analyzes your replay and generates professional-style camera sequences. It works in two modes:
+
+- **Event-Driven Mode (Default)** - No LLM required. Camera switches are triggered by detected events with configurable anticipation timing.
+- **LLM Mode (Optional)** - Uses OpenAI or local models for AI-powered camera selection.
 
 ### Quick Start
 
 1. Open a replay in iRacing
 2. Launch Sequence Director
-3. Go to **AI Director > Scan Replay** (set your frame range)
-4. Click **AI Director > Generate Camera Plan**
-5. Click **AI Director > Apply AI Plan**
+3. Go to **Auto Director > Scan Replay for Events**
+4. Click **Auto Director > Generate Camera Plan**
+5. Click **Auto Director > Apply Camera Plan**
 6. Play or record your sequence!
 
 ### How It Works
 
 #### Step 1: Scan Replay
-The AI Director scans through your replay detecting key events:
+The Auto Director scans through your replay detecting key events:
 - **Incidents** - Off-track excursions, spins, contact
 - **Battles** - Close racing between drivers (gap < 2% of lap)
 - **Overtakes** - Position changes between drivers
 
 #### Step 2: Generate Camera Plan
-Sends the detected events to an LLM (OpenAI or local model) which creates a broadcast-style camera sequence with:
-- Varied camera angles (TV, Chase, Cockpit, Helicopter, etc.)
-- Professional pacing (8-15 second cuts)
-- Coverage of key moments
+
+**Event-Driven Mode (Default)**
+Camera switches are triggered by detected events. The camera switches *before* each event happens (configurable anticipation) so you see the action unfold:
+- Switch to incident driver 3 seconds before the incident
+- Switch to overtaking driver before the pass completes
+- Fill gaps between events with variety cuts
+
+**LLM Mode (Optional)**
+Enable "Use AI/LLM for camera selection" in settings to send events to an LLM (OpenAI or local model) which creates the camera sequence.
 
 #### Step 3: Apply Plan
-The AI selects which driver to follow for each camera switch using the Driver Selection Algorithm, then adds nodes to your list.
+The driver selection algorithm chooses which driver to follow for each camera switch, then adds nodes to your timeline.
 
 **Tip:** You can re-apply the plan with different driver selection settings without rescanning or regenerating!
 
 ---
 
-### AI Director Settings
+### Auto Director Settings
 
-Access via **AI Director > Settings** menu. Three tabs are available:
+Access via **Auto Director > Settings** menu.
 
-#### LLM Provider Tab
+#### Camera Plan Tab
 
-Configure your AI model:
+**Event-Driven Mode (Default)**
+- **Anticipation** - Seconds before an event to switch camera (default: 3s)
+- **Min seconds between cuts** - Prevents rapid switching (default: 4s)
+- **Max seconds between cuts** - Fills gaps when no events (default: 15s)
 
-**OpenAI (Recommended)**
-- Enter your OpenAI API key
-- Select model: `gpt-4o` (best quality), `gpt-4o-mini` (faster/cheaper), `gpt-3.5-turbo`
-- Click "Test Connection" to verify
-
-**Local Models**
-- Works with Ollama, LM Studio, or any OpenAI-compatible API
-- Default endpoint: `http://localhost:11434/v1/chat/completions`
-- Enter your model name (e.g., `llama3`, `mistral`)
+**LLM Mode** (check "Use AI/LLM for camera selection")
+- **OpenAI** - Enter API key, select model (gpt-4o, gpt-4o-mini, gpt-3.5-turbo)
+- **Local Models** - Works with Ollama, LM Studio, or any OpenAI-compatible API
 
 #### Event Detection Tab
 
@@ -87,40 +92,59 @@ How much each event type influences driver selection:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Incidents | 50 | Crashes, spins, off-tracks |
-| Overtakes | 40 | Position changes |
-| Battles | 35 | Close racing |
+| Incidents | 70 | Crashes, spins, off-tracks |
+| Overtakes | 50 | Position changes |
+| Battles | 10 | Close racing |
 
 ##### Bonus Weights
 Additional factors that boost driver priority:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Momentum | 25 | Drivers gaining multiple positions ("on a charge") |
+| Momentum | 20 | Drivers gaining multiple positions ("on a charge") |
 | Pack Racing | 15 | Drivers in groups of 3+ cars |
-| Fresh Action | 15 | Recent position changes (decays over 20 sec) |
-| Position | 15 | Baseline interest from race position |
+| Fresh Action | 25 | Recent position changes (decays over 20 sec) |
+| Position | 20 | Baseline interest from race position |
 
 ##### Variety Control
 **These are the most important settings for balancing action vs. variety:**
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Variety Strength | 60 | Penalty for recently-shown drivers (higher = more switching) |
-| Action Override | 40% | How much exciting action reduces variety penalty |
+| Variety Strength | 70 | Penalty for recently-shown drivers (higher = more switching) |
+| Action Override | 30% | How much exciting action reduces variety penalty |
 | Min Cuts/Minute | 4 | Minimum driver switches per minute |
+
+##### Focus Driver
+Optionally give extra weight to a specific car number's events.
+
+#### Cameras Tab
+
+Select which cameras to include/exclude from the broadcast. All 20 iRacing cameras are available:
+- TV: TV1, TV2, TV3
+- Chase: Chase, Far Chase, Rear Chase
+- Onboard: Cockpit, Roll Bar, Gyro, Nose, Gearbox
+- Suspension: LF Susp, RF Susp, LR Susp, RR Susp
+- Aerial: Chopper, Blimp
+- Other: Scenic, Pit Lane, Pit Lane 2
+
+Default exclusions: Scenic, Pit Lane, Pit Lane 2, Chase, Far Chase
+
+#### Overlays Tab
+
+Configure driver information overlays shown during playback (current driver, driver ahead, driver behind).
 
 ---
 
 ### Tuning Guide
 
 **Problem: Same few drivers shown repeatedly**
-- Increase **Variety Strength** (try 70-80)
-- Decrease **Action Override** (try 20-30%)
+- Increase **Variety Strength** (try 80-90)
+- Decrease **Action Override** (try 20%)
 - The variety penalty will apply more strongly
 
 **Problem: Missing exciting action**
-- Increase **Event Weights** (Incidents, Overtakes, Battles)
+- Increase **Event Weights** (Incidents, Overtakes)
 - Increase **Action Override** (try 50-60%)
 - Action will override variety penalty more
 
@@ -130,21 +154,13 @@ Additional factors that boost driver priority:
 
 **Problem: Cuts feel random/unfocused**
 - Increase **Event Weights** to prioritize action
-- Decrease **Min Cuts/Minute** for longer shots
-
-**Recommended starting points:**
-
-| Style | Variety | Action Override | Event Weights |
-|-------|---------|-----------------|---------------|
-| Broadcast (balanced) | 60 | 40% | 50/40/35 |
-| Action-focused | 40 | 60% | 60/50/45 |
-| Maximum variety | 80 | 20% | 40/35/30 |
+- Increase **Anticipation** to see more lead-up to events
 
 ---
 
 ### How Driver Selection Works
 
-When applying a camera plan, the AI scores each driver at each camera switch point:
+When applying a camera plan, drivers are scored at each camera switch point:
 
 ```
 Final Score = Action Score + Position Score - Variety Penalty - Overexposure Penalty + Bonuses
@@ -162,13 +178,13 @@ Final Score = Action Score + Position Score - Variety Penalty - Overexposure Pen
 
 1. **Start with defaults** - They're tuned for balanced broadcast-style coverage
 
-2. **Re-apply to test settings** - After changing driver selection weights, just click "Apply AI Plan" again (no rescan needed)
+2. **Re-apply to test settings** - After changing driver selection weights, just click "Apply Camera Plan" again (no rescan needed)
 
-3. **Longer replays** - The system automatically chunks replays >10 minutes into segments for better LLM handling
+3. **Event-driven mode** - Works great without any LLM setup. Camera switches are timed to show events as they unfold.
 
-4. **Local models** - For privacy or cost savings, use Ollama with `llama3` or similar. Quality may vary.
+4. **LLM mode** - Optional for those who want AI-powered camera selection. Use OpenAI or local models like Ollama.
 
-5. **Camera variety** - The LLM handles camera selection; driver selection settings don't affect camera angles
+5. **Anticipation timing** - The default 3 seconds gives good lead-up to see action develop. Increase for more context, decrease for tighter cuts.
 
 ## Installation
 

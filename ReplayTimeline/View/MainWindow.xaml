@@ -37,12 +37,12 @@
 					<MenuItem Header="Clear All Nodes" Command="{Binding ClearAllNodesCommand}" />
 				</MenuItem>
 
-				<MenuItem Header="AI Director">
+				<MenuItem Header="Auto Director">
 					<MenuItem Header="Scan Replay for Events" Command="{Binding ScanReplayCommand}"/>
 					<MenuItem Header="Generate Camera Plan" Command="{Binding GenerateCameraPlanCommand}"/>
-					<MenuItem Header="Apply AI Plan" Command="{Binding ApplyAIPlanCommand}"/>
+					<MenuItem Header="Apply Camera Plan" Command="{Binding ApplyAIPlanCommand}"/>
 					<Separator />
-					<MenuItem Header="Clear AI Results" Command="{Binding ClearAIResultsCommand}"/>
+					<MenuItem Header="Clear Results" Command="{Binding ClearAIResultsCommand}"/>
 					<Separator />
 					<MenuItem Header="Settings..." Command="{Binding OpenAISettingsCommand}"/>
 				</MenuItem>
