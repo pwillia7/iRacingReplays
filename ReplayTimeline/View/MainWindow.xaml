@@ -55,6 +55,7 @@
 					<MenuItem Header="Session/Lap Controls" IsCheckable="True" IsChecked="{Binding ShowSessionLapSkipControls}" />
 					<Separator />
 					<MenuItem Header="Driver Name Overlay" IsCheckable="True" IsChecked="{Binding ShowDriverOverlay}" />
+					<MenuItem Header="Leaderboard Overlay" IsCheckable="True" IsChecked="{Binding ShowLeaderboardOverlay}" />
 				</MenuItem>
 
 				<MenuItem Header="Help">

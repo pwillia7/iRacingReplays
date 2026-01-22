@@ -287,6 +287,14 @@ namespace iRacingReplayDirector.AI.Director
 			set { _showBehindDriverOverlay = value; OnPropertyChanged("ShowBehindDriverOverlay"); }
 		}
 
+		// Show the F1-style leaderboard overlay during playback
+		private bool _showLeaderboardOverlay = false;
+		public bool ShowLeaderboardOverlay
+		{
+			get { return _showLeaderboardOverlay; }
+			set { _showLeaderboardOverlay = value; OnPropertyChanged("ShowLeaderboardOverlay"); }
+		}
+
 		// Overlay vertical position: "Top" or "Bottom"
 		private string _overlayPosition = "Bottom";
 		public string OverlayPosition

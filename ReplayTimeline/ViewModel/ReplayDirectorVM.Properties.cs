@@ -388,6 +388,13 @@ namespace iRacingReplayDirector
 			set { _showDriverOverlay = value; Properties.Settings.Default.ShowDriverOverlay = value; OnPropertyChanged("ShowDriverOverlay"); }
 		}
 
+		private bool _showLeaderboardOverlay;
+		public bool ShowLeaderboardOverlay
+		{
+			get { return _showLeaderboardOverlay; }
+			set { _showLeaderboardOverlay = value; Properties.Settings.Default.ShowLeaderboardOverlay = value; OnPropertyChanged("ShowLeaderboardOverlay"); }
+		}
+
 
 		private string _manualFrameEntryText;
 		public string ManualFrameEntryText

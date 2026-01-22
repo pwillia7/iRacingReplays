@@ -12,6 +12,7 @@ namespace iRacingReplayDirector
 		private DriverOverlayWindow _driverOverlay;
 		private AheadDriverOverlayWindow _aheadDriverOverlay;
 		private BehindDriverOverlayWindow _behindDriverOverlay;
+		private LeaderboardOverlayWindow _leaderboardOverlay;
 
 		public MainWindow()
 		{
@@ -42,6 +43,14 @@ namespace iRacingReplayDirector
 				if (_vm.PlaybackEnabled)
 				{
 					UpdateCurrentDriverOverlay();
+				}
+			}
+			else if (e.PropertyName == "ShowLeaderboardOverlay")
+			{
+				// Handle setting change while playing
+				if (_vm.PlaybackEnabled)
+				{
+					UpdateLeaderboardOverlay();
 				}
 			}
 		}
@@ -79,6 +88,16 @@ namespace iRacingReplayDirector
 				}
 				_behindDriverOverlay.Show();
 			}
+
+			// Show leaderboard overlay if enabled
+			if (_vm.ShowLeaderboardOverlay)
+			{
+				if (_leaderboardOverlay == null)
+				{
+					_leaderboardOverlay = new LeaderboardOverlayWindow(_vm, settings);
+				}
+				_leaderboardOverlay.Show();
+			}
 		}
 
 		private void HideDriverOverlays()
@@ -94,6 +113,10 @@ namespace iRacingReplayDirector
 			if (_behindDriverOverlay != null)
 			{
 				_behindDriverOverlay.Hide();
+			}
+			if (_leaderboardOverlay != null)
+			{
+				_leaderboardOverlay.Hide();
 			}
 		}
 
@@ -116,6 +139,26 @@ namespace iRacingReplayDirector
 			}
 		}
 
+		private void UpdateLeaderboardOverlay()
+		{
+			var settings = _vm.AIDirector?.Settings;
+			if (_vm.ShowLeaderboardOverlay)
+			{
+				if (_leaderboardOverlay == null)
+				{
+					_leaderboardOverlay = new LeaderboardOverlayWindow(_vm, settings);
+				}
+				_leaderboardOverlay.Show();
+			}
+			else
+			{
+				if (_leaderboardOverlay != null)
+				{
+					_leaderboardOverlay.Hide();
+				}
+			}
+		}
+
 		private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
 		{
 			// Clean up driver overlays
@@ -133,6 +176,11 @@ namespace iRacingReplayDirector
 			{
 				_behindDriverOverlay.Close();
 				_behindDriverOverlay = null;
+			}
+			if (_leaderboardOverlay != null)
+			{
+				_leaderboardOverlay.Close();
+				_leaderboardOverlay = null;
 			}
 
 			// Unsubscribe from events

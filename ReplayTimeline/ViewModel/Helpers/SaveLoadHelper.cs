@@ -37,6 +37,7 @@ namespace iRacingReplayDirector
 
 			vm.ShowInactiveDrivers = Properties.Settings.Default.ShowInactiveDrivers;
 			vm.ShowDriverOverlay = Properties.Settings.Default.ShowDriverOverlay;
+			vm.ShowLeaderboardOverlay = Properties.Settings.Default.ShowLeaderboardOverlay;
 
 			vm.SelectedCaptureMode = vm.CaptureModes.FirstOrDefault(m => m.Name == Properties.Settings.Default.CaptureModeSelected);
 		}

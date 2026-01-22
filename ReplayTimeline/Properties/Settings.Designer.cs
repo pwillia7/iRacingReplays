@@ -178,5 +178,17 @@ namespace iRacingReplayDirector.Properties {
                 this["ShowDriverOverlay"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShowLeaderboardOverlay {
+            get {
+                return ((bool)(this["ShowLeaderboardOverlay"]));
+            }
+            set {
+                this["ShowLeaderboardOverlay"] = value;
+            }
+        }
     }
 }
