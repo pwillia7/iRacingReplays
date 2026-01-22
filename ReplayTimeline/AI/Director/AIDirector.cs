@@ -567,10 +567,11 @@ namespace iRacingReplayDirector.AI.Director
 			int maxFramesBetweenCuts = Settings.MaxSecondsBetweenCuts * fps;
 
 			// Sort events by frame and filter to significant events
+			// Include all incidents and overtakes, and battles with moderate+ importance
 			var significantEvents = LastScanResult.Events
 				.Where(e => e.EventType == RaceEventType.Incident ||
 				           e.EventType == RaceEventType.Overtake ||
-				           (e.EventType == RaceEventType.Battle && e.ImportanceScore >= 6))
+				           (e.EventType == RaceEventType.Battle && e.ImportanceScore >= 4))
 				.OrderBy(e => e.Frame)
 				.ToList();
 
@@ -596,7 +597,10 @@ namespace iRacingReplayDirector.AI.Director
 			foreach (var evt in significantEvents)
 			{
 				// Calculate the frame to switch TO this event (before it happens)
-				int cutFrame = evt.Frame - anticipationFrames;
+				// Add slight jitter to anticipation (-0.5s to +1s) for more natural timing
+				int jitterFrames = _random.Next(-30, 61); // -0.5s to +1s at 60fps
+				int effectiveAnticipation = Math.Max(fps, anticipationFrames + jitterFrames); // At least 1 second
+				int cutFrame = evt.Frame - effectiveAnticipation;
 
 				// Ensure cut frame is within bounds
 				if (cutFrame < LastScanResult.StartFrame)
@@ -604,14 +608,17 @@ namespace iRacingReplayDirector.AI.Director
 				if (cutFrame >= LastScanResult.EndFrame)
 					continue;
 
-				// Check minimum spacing from last cut
-				if (cutFrame - lastCutFrame < minFramesBetweenCuts)
+				// Check minimum spacing from last cut (with slight variation)
+				int effectiveMinSpacing = minFramesBetweenCuts + _random.Next(-30, 31); // +/- 0.5s
+				effectiveMinSpacing = Math.Max(fps * 2, effectiveMinSpacing); // At least 2 seconds
+
+				if (cutFrame - lastCutFrame < effectiveMinSpacing)
 				{
 					// Event is too close to last cut - skip or merge
 					// But if this is a high-importance event (incident), try to fit it in
 					if (evt.EventType == RaceEventType.Incident && evt.ImportanceScore >= 8)
 					{
-						cutFrame = lastCutFrame + minFramesBetweenCuts;
+						cutFrame = lastCutFrame + effectiveMinSpacing;
 						if (cutFrame >= evt.Frame + evt.DurationFrames)
 							continue; // Too late, skip this event
 					}
@@ -856,8 +863,12 @@ namespace iRacingReplayDirector.AI.Director
 			return containsWord;
 		}
 
+		// Random generator for adding variety to cut timing
+		private readonly Random _random = new Random();
+
 		/// <summary>
-		/// Fill long gaps between events with regular interval cuts.
+		/// Fill long gaps between events with varied interval cuts for a more natural feel.
+		/// Uses randomized timing within a range to avoid predictable patterns.
 		/// </summary>
 		private void FillGapsWithCuts(List<ScheduledCut> cuts, int startFrame, int endFrame,
 			int maxGapFrames, int minGapFrames, List<string> availableCameras)
@@ -866,6 +877,10 @@ namespace iRacingReplayDirector.AI.Director
 			var sortedCuts = cuts.OrderBy(c => c.Frame).ToList();
 			var newCuts = new List<ScheduledCut>();
 
+			// Calculate a varied interval range (60-100% of max gap) for more natural pacing
+			int minInterval = (int)(maxGapFrames * 0.6);
+			int maxInterval = maxGapFrames;
+
 			int previousFrame = startFrame;
 			string lastCamera = sortedCuts.FirstOrDefault()?.CameraName;
 
@@ -873,10 +888,13 @@ namespace iRacingReplayDirector.AI.Director
 			{
 				int gap = cut.Frame - previousFrame;
 
-				// If gap is too long, add filler cuts
+				// If gap is too long, add filler cuts with varied timing
 				while (gap > maxGapFrames)
 				{
-					int fillerFrame = previousFrame + maxGapFrames;
+					// Randomize the interval for this filler cut
+					int interval = _random.Next(minInterval, maxInterval + 1);
+					int fillerFrame = previousFrame + interval;
+
 					if (fillerFrame >= cut.Frame - minGapFrames)
 						break; // Don't add filler too close to next event cut
 
@@ -899,11 +917,12 @@ namespace iRacingReplayDirector.AI.Director
 				lastCamera = cut.CameraName;
 			}
 
-			// Fill gap at the end if needed
+			// Fill gap at the end if needed with varied timing
 			int lastEventFrame = sortedCuts.LastOrDefault()?.Frame ?? startFrame;
 			while (endFrame - lastEventFrame > maxGapFrames)
 			{
-				int fillerFrame = lastEventFrame + maxGapFrames;
+				int interval = _random.Next(minInterval, maxInterval + 1);
+				int fillerFrame = lastEventFrame + interval;
 				if (fillerFrame >= endFrame)
 					break;
 
