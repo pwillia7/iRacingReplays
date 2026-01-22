@@ -65,9 +65,11 @@ The project depends on iRacing SDK wrapper DLLs not included in this repository:
 - **Strategy**: Capture modes implement `CaptureModeBase`
 - **Value Converters**: `ViewModel/Converters/` for WPF binding transformations
 
-## AI Director Feature
+## Auto Director Feature
 
-LLM-driven camera control that automatically generates camera plans for replays.
+Automatic camera control that generates camera plans for replays. Works in two modes:
+- **Event-Driven Mode (Default)**: No LLM required. Camera switches triggered by detected events with anticipation timing.
+- **LLM Mode (Optional)**: Uses OpenAI or local models for AI-powered camera selection.
 
 **Architecture** (`AI/` folder):
 - `AI/Models/` - RaceEvent, TelemetrySnapshot, CameraPlan data models
@@ -78,17 +80,17 @@ LLM-driven camera control that automatically generates camera plans for replays.
 **Workflow**:
 1. **Scan Replay**: Jump through frames collecting telemetry snapshots
 2. **Detect Events**: Run detectors to find incidents, overtakes, battles
-3. **Generate Plan**: Send event summary to LLM, receive JSON camera actions
-4. **Apply Plan**: Convert LLM output to CamChangeNodes in NodeCollection
+3. **Generate Plan**: Event-driven mode creates plan from events; LLM mode sends to model for JSON response
+4. **Apply Plan**: Convert plan to CamChangeNodes in NodeCollection
 
-**LLM Integration**:
+**LLM Integration** (optional):
 - `ILLMProvider` interface with `OpenAIProvider` and `LocalModelProvider`
 - Uses OpenAI-compatible chat completions API format
 - Prompts in `PromptTemplates.cs` instruct LLM to output JSON camera plan
 
 **Commands**: `Commands/AI/` - ScanReplayCommand, GenerateCameraPlanCommand, ApplyAIPlanCommand
 
-**Settings**: Configure via AI Director > Settings menu (API key, model selection, detection options)
+**Settings**: Configure via Auto Director > Settings menu (detection options, anticipation timing, optional LLM)
 
 ## No Test Suite
 
