@@ -863,9 +863,6 @@ namespace iRacingReplayDirector.AI.Director
 			return containsWord;
 		}
 
-		// Random generator for adding variety to cut timing
-		private readonly Random _random = new Random();
-
 		/// <summary>
 		/// Fill long gaps between events with varied interval cuts for a more natural feel.
 		/// Uses randomized timing within a range to avoid predictable patterns.
