@@ -204,7 +204,7 @@ Final Score = Action Score + Position Score - Variety Penalty - Overexposure Pen
 
 ## Installation
 
-- Download the latest version from the [Releases](https://github.com/GetUpKidAK/iRacingSequenceDirector/releases) page. 
+- Download the latest version from the [Releases](https://github.com/pwillia7/iRacingReplays/releases) page. 
 - Extract to your preferred location and run iRacingSequenceDirector.exe with a replay open
 
 ## How to use
@@ -292,9 +292,3 @@ To use OBS recording without manually starting the recording process, you'll nee
 ### Using custom cameras
 
 You can use your own modified cameras using the iRacing Camera Tool. I've written a basic guide on how to do that here: https://docs.google.com/document/d/1EOWFVIqH9OppcqurmR_wzZs_czvqj3_zsKU_qR6fKfo/edit?usp=sharing
-
-## Support
-
-You can ask any questions or get support for the app over at the [iRacing Forums](https://forums.iracing.com/discussion/605/iracing-sequence-director-editing-tool-for-replays).
-
-If you *really* like the app, you can make a donation via [PayPal](https://paypal.me/GetUpKidAK?locale.x=en_GB). Thanks!
