@@ -1,6 +1,8 @@
-# iRacing Sequence Director
+# iRacing Automated Replay Director
 
-**_I no longer have an active iRacing subscription so I've made the source code available for anyone interesting in updating this_**
+_This is a fork of this repo with additional features added in: https://github.com/GetUpKidAK/iRacingReplayTimeline_
+
+If you really like the app, you can buy me a coffee [here](https://buymeacoffee.com/reticulated). Thanks!
 
 Create your own replay edits without any required editing knowledge. Create 'nodes' at points in your replay and choose this point to either cut to a different driver and/or camera or skip to further ahead in the replay. Sequence Director will then play this sequence of shots and time-skips back for recording or viewing.
 
@@ -14,6 +16,8 @@ Create your own replay edits without any required editing knowledge. Create 'nod
 - **Auto Director** - Automatically generate camera plans with event-driven switching (LLM optional)
 
 ![App screenshot](https://i.ibb.co/6nGVxfh/Main.png)
+
+**[A sample replay with the default settings and overlays can be found here](https://www.youtube.com/watch?v=CUL70uNVKeU&feature=youtu.be)**
 
 ## Auto Director
 
@@ -132,7 +136,19 @@ Default exclusions: Scenic, Pit Lane, Pit Lane 2, Chase, Far Chase
 
 #### Overlays Tab
 
-Configure driver information overlays shown during playback (current driver, driver ahead, driver behind).
+Configure driver information overlays shown during playback:
+
+| Overlay | Default | Description |
+|---------|---------|-------------|
+| Current Driver | ✓ | Shows the driver currently being followed |
+| Driver Ahead | Off | Shows the driver in front of the current driver |
+| Driver Behind | Off | Shows the driver behind the current driver |
+| Leaderboard | Off | F1-style leaderboard showing positions, driver codes, and gaps |
+
+Additional settings:
+- **Position** - Top or Bottom of screen (default: Bottom)
+- **Offset** - Distance from screen edge in pixels (default: 100px)
+- **Font Size** - Overlay text size (default: 32pt)
 
 ---
 
